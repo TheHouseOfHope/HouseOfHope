@@ -1,3 +1,7 @@
+# Bun lockfiles (this project standardizes on npm / package-lock.json)
+bun.lock
+bun.lockb
+
 # Logs
 logs
 *.log
