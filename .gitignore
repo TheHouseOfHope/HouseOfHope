@@ -1,0 +1,31 @@
+# .NET backend
+backend/bin/
+backend/obj/
+backend/.vs/
+backend/*.user
+backend/appsettings.Development.json
+
+# Environment and secrets
+.env
+.env.local
+.env.development
+*.env
+
+# React frontend
+front-end/node_modules/
+front-end/dist/
+front-end/.vite/
+
+# Mac OS
+.DS_Store
+**/.DS_Store
+
+# Rider
+.idea/
+
+# VS Code
+.vscode/
+
+# Logs
+*.log
+npm-debug.log*
