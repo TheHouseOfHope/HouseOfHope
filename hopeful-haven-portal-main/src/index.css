@@ -1,0 +1,110 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 180 20% 99%;
+    --foreground: 200 25% 15%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 200 25% 15%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 200 25% 15%;
+
+    --primary: 174 55% 38%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 200 60% 94%;
+    --secondary-foreground: 200 25% 15%;
+
+    --muted: 180 15% 95%;
+    --muted-foreground: 200 10% 45%;
+
+    --accent: 200 65% 55%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 72% 55%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 180 15% 90%;
+    --input: 180 15% 90%;
+    --ring: 174 55% 38%;
+
+    --radius: 0.75rem;
+
+    --sidebar-background: 180 20% 97%;
+    --sidebar-foreground: 200 25% 15%;
+    --sidebar-primary: 174 55% 38%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 180 20% 93%;
+    --sidebar-accent-foreground: 200 25% 15%;
+    --sidebar-border: 180 15% 90%;
+    --sidebar-ring: 174 55% 38%;
+
+    /* Custom tokens */
+    --warm-white: 40 30% 97%;
+    --ocean-light: 200 60% 94%;
+    --ocean: 200 65% 55%;
+    --ocean-dark: 200 55% 35%;
+    --teal: 174 55% 38%;
+    --teal-light: 174 45% 85%;
+    --teal-dark: 174 60% 25%;
+    --sand: 35 40% 92%;
+    --coral: 12 70% 65%;
+
+    --risk-low: 142 60% 45%;
+    --risk-medium: 45 90% 50%;
+    --risk-high: 25 90% 55%;
+    --risk-critical: 0 72% 55%;
+
+    --status-active: 142 60% 45%;
+    --status-closed: 220 10% 55%;
+    --status-transferred: 210 65% 55%;
+
+    --font-display: 'Playfair Display', serif;
+    --font-body: 'DM Sans', sans-serif;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-body);
+  }
+
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+  }
+}
+
+@layer components {
+  .stat-card {
+    @apply bg-card rounded-xl border p-6 shadow-sm transition-shadow hover:shadow-md;
+  }
+
+  .table-striped tbody tr:nth-child(even) {
+    @apply bg-muted/40;
+  }
+
+  .table-striped tbody tr:hover {
+    @apply bg-muted/70;
+  }
+}
+
+@layer utilities {
+  .gradient-hero {
+    background: linear-gradient(135deg, hsl(var(--teal)) 0%, hsl(var(--ocean)) 50%, hsl(var(--ocean-dark)) 100%);
+  }
+
+  .gradient-warm {
+    background: linear-gradient(135deg, hsl(var(--warm-white)) 0%, hsl(var(--ocean-light)) 100%);
+  }
+}
