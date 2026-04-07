@@ -79,7 +79,7 @@ function AdminSidebarContent() {
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
-                <SidebarMenuButton onClick={() => { logout(); navigate('/'); }}>
+                <SidebarMenuButton onClick={() => { void logout(); navigate('/'); }}>
                   <LogOut className="mr-2 h-4 w-4" />
                   {!collapsed && <span>Logout</span>}
                 </SidebarMenuButton>
