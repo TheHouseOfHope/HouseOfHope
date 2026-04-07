@@ -4,6 +4,7 @@ import { fetchImpactStats, fetchMyDonations } from '@/lib/api-endpoints';
 import { useAuth } from '@/contexts/AuthContext';
 import { StatCard } from '@/components/StatCard';
 import { PublicNavbar } from '@/components/PublicNavbar';
+import { SiteFooter } from '@/components/SiteFooter';
 import { CookieConsentBanner } from '@/components/CookieConsentBanner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -168,6 +169,7 @@ export default function DonorPortal() {
           </Card>
         </div>
       </main>
+      <SiteFooter />
       <CookieConsentBanner />
     </div>
   );

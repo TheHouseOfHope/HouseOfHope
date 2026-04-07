@@ -18,6 +18,7 @@ import {
   LayoutDashboard, Users, FileText, HandCoins, BarChart3, Share2, Heart, LogOut, Home,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { SiteFooter } from '@/components/SiteFooter';
 
 const adminNav = [
   { title: 'Dashboard', url: '/admin', icon: LayoutDashboard },
@@ -97,7 +98,7 @@ export function AdminLayout() {
     <SidebarProvider>
       <div className="min-h-screen flex w-full">
         <AdminSidebarContent />
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 flex flex-col min-h-screen">
           <header className="h-14 flex items-center border-b bg-card/80 backdrop-blur-sm px-4 sticky top-0 z-40">
             <SidebarTrigger className="mr-4" />
             <h2 className="font-display text-lg font-semibold text-foreground">Admin Portal</h2>
@@ -105,6 +106,7 @@ export function AdminLayout() {
           <main className="flex-1 p-4 md:p-6 lg:p-8 gradient-warm">
             <Outlet />
           </main>
+          <SiteFooter />
         </div>
       </div>
     </SidebarProvider>
