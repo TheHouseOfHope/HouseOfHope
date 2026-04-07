@@ -35,6 +35,18 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
+// Database seeding
+using (var scope = app.Services.CreateScope())
+{
+    var context = scope.ServiceProvider.GetRequiredService<LighthouseDbContext>();
+    
+    // 1. Ensure the database tables exist in Azure
+    context.Database.Migrate(); 
+    
+    // 2. Run our custom CSV seeder
+    DataSeeder.Seed(context);
+}
+
 if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 

@@ -17,10 +17,10 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.5" />
   </ItemGroup>
 
-  <ItemGroup>
-    <None Update="lighthouse_v7.sqlite">
+<ItemGroup>
+    <None Update="SeedData\*.csv">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
-
+  
 </Project>
