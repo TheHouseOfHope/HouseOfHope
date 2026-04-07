@@ -26,7 +26,7 @@ export default function DonorImpactDashboard() {
 
   if (error) {
     return (
-        <div className="gradient-warm py-12">
+        <div className="gradient-warm py-12 min-h-screen">
           <div className="container mx-auto px-4">
             <p className="text-destructive text-center">Unable to load impact data.</p>
           </div>
@@ -41,7 +41,7 @@ export default function DonorImpactDashboard() {
   const formattedDonations = `${CURRENCY_SYMBOLS[currency]}${(convertedDonations / 1000).toFixed(0)}K`;
 
   return (
-      <div className="gradient-warm py-12">
+      <div className="gradient-warm py-12 min-h-screen">
         <div className="container mx-auto px-4">
           <div className="text-center mb-12">
             <h1 className="text-4xl font-display font-bold text-foreground">Our Impact</h1>
@@ -49,8 +49,9 @@ export default function DonorImpactDashboard() {
               See how your support transforms lives. All data is anonymized to protect the privacy of the girls we serve.
             </p>
             <div className="mt-4 flex justify-center items-center gap-2">
-              <span className="text-sm text-muted-foreground">Display currency:</span>
+              <label htmlFor="currency-select" className="text-sm text-muted-foreground">Display currency:</label>
               <select
+                  id="currency-select"
                   value={currency}
                   onChange={(e) => setCurrency(e.target.value as 'PHP' | 'USD' | 'EUR')}
                   className="text-sm border rounded-md px-2 py-1 bg-background text-foreground"
@@ -62,8 +63,7 @@ export default function DonorImpactDashboard() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-10">
-            {isLoading ? (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-10">            {isLoading ? (
                 [...Array(6)].map((_, i) => <Skeleton key={i} className="h-28 rounded-xl" />)
             ) : (
                 <>
@@ -89,7 +89,7 @@ export default function DonorImpactDashboard() {
             )}
           </div>
 
-          <div className="grid lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card>
               <CardHeader>
                 <CardTitle className="font-display text-lg">Girls Helped Over Time</CardTitle>
