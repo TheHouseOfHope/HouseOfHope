@@ -1,4 +1,4 @@
-import { Outlet, useLocation, Link, useNavigate } from 'react-router-dom';
+import { Outlet, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   Sidebar,
@@ -15,9 +15,8 @@ import {
 } from '@/components/ui/sidebar';
 import { NavLink } from '@/components/NavLink';
 import {
-  LayoutDashboard, Users, FileText, HandCoins, BarChart3, Share2, Heart, LogOut, Home,
+  LayoutDashboard, Users, HandCoins, BarChart3, Share2, Heart, LogOut, Home,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { SiteFooter } from '@/components/SiteFooter';
 
 const adminNav = [
@@ -31,7 +30,6 @@ const adminNav = [
 function AdminSidebarContent() {
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
-  const location = useLocation();
   const { logout } = useAuth();
   const navigate = useNavigate();
 

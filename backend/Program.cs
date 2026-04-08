@@ -86,7 +86,8 @@ builder.Services.AddCors(options =>
                 "http://localhost:5173",
                 "http://127.0.0.1:5173",
                 "https://localhost:5173",
-                "https://127.0.0.1:5173")
+                "https://127.0.0.1:5173",
+                "https://polite-bush-0e7f0950f.1.azurestaticapps.net")
             .AllowCredentials()
             .AllowAnyMethod()
             .AllowAnyHeader();
@@ -97,6 +98,10 @@ var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
 {
+    var appDb = scope.ServiceProvider.GetRequiredService<LighthouseDbContext>();
+    appDb.Database.Migrate();
+    DataSeeder.Seed(appDb);
+
     var identityDb = scope.ServiceProvider.GetRequiredService<AuthIdentityDbContext>();
     await identityDb.Database.MigrateAsync();
     await AuthIdentityGenerator.GenerateDefaultIdentityAsync(scope.ServiceProvider, app.Configuration);
