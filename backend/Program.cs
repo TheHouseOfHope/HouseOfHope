@@ -99,8 +99,17 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var appDb = scope.ServiceProvider.GetRequiredService<LighthouseDbContext>();
-    appDb.Database.Migrate();
-    DataSeeder.Seed(appDb);
+    if (app.Environment.IsDevelopment())
+    {
+        // In local SQLite dev, schema may already exist without matching EF migration history.
+        // EnsureCreated avoids PendingModelChanges/table-exists startup crashes.
+        appDb.Database.EnsureCreated();
+    }
+    else
+    {
+        appDb.Database.Migrate();
+        DataSeeder.Seed(appDb);
+    }
 
     var identityDb = scope.ServiceProvider.GetRequiredService<AuthIdentityDbContext>();
     await identityDb.Database.MigrateAsync();
