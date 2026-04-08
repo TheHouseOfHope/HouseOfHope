@@ -61,7 +61,8 @@ public class AnalyticsController : ControllerBase
 
         var eduAvg = await _db.EducationRecords.AsNoTracking()
             .Where(e => e.ProgressPercent != null)
-            .AverageAsync(e => e.ProgressPercent!.Value, ct);
+            .Select(e => (double?)e.ProgressPercent)
+            .AverageAsync(ct) ?? 0;
         var eduRounded = Math.Round(Math.Min(100, eduAvg));
 
         var safehouseComparison = safehouseRows
@@ -184,10 +185,14 @@ public class AnalyticsController : ControllerBase
         var completed = await _db.Residents.CountAsync(r => r.ReintegrationStatus == "Completed", ct);
         var reintRate = closed > 0 ? (int)Math.Round(100.0 * completed / Math.Max(closed, 1)) : 0;
 
-        var eduAvg = await _db.EducationRecords.Where(e => e.ProgressPercent != null)
-            .AverageAsync(e => e.ProgressPercent!.Value, ct);
-        var healthAvg = await _db.HealthWellbeingRecords.Where(h => h.GeneralHealthScore != null)
-            .AverageAsync(h => h.GeneralHealthScore!.Value, ct);
+        var eduAvg = await _db.EducationRecords
+            .Where(e => e.ProgressPercent != null)
+            .Select(e => (double?)e.ProgressPercent)
+            .AverageAsync(ct) ?? 0;
+        var healthAvg = await _db.HealthWellbeingRecords
+            .Where(h => h.GeneralHealthScore != null)
+            .Select(h => (double?)h.GeneralHealthScore)
+            .AverageAsync(ct) ?? 0;
 
         var eduRate = (int)Math.Clamp(Math.Round(eduAvg), 0, 100);
         var healthRate = (int)Math.Clamp(Math.Round(HouseOfHopeMapper.HealthToPercent(healthAvg)), 0, 100);
