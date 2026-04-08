@@ -1,8 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import { StatCard } from '@/components/StatCard';
 import { RiskBadge } from '@/components/RiskBadge';
 import { fetchDashboard, fetchImpactStats, fetchResidents } from '@/lib/api-endpoints';
-import { Users, DollarSign, AlertTriangle, CalendarClock, TrendingUp } from 'lucide-react';
+import { Users, DollarSign, AlertTriangle, CalendarClock, TrendingUp, ArrowRight } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -47,7 +48,7 @@ export default function AdminDashboard() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-display font-bold text-foreground">Dashboard</h1>
+      <h1 className="text-3xl font-display font-bold text-foreground">Admin Command Center</h1>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {loading ? (
@@ -64,6 +65,26 @@ export default function AdminDashboard() {
 
       <div className="grid lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="font-display text-lg">IS413 Admin Modules</CardTitle>
+            </CardHeader>
+            <CardContent className="grid md:grid-cols-2 gap-3">
+              {[
+                { name: 'Donors & Contributions', to: '/admin/donors' },
+                { name: 'Caseload Inventory', to: '/admin/caseload' },
+                { name: 'Process Recording', to: '/admin/caseload' },
+                { name: 'Home Visitations & Case Conferences', to: '/admin/field-ops' },
+                { name: 'Reports & Analytics', to: '/admin/reports' },
+              ].map((module) => (
+                <Link key={module.name} to={module.to} className="flex items-center justify-between rounded-lg border bg-muted/30 px-3 py-2 text-sm hover:bg-muted/60">
+                  <span>{module.name}</span>
+                  <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                </Link>
+              ))}
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle className="font-display text-lg">Education & Health Progress</CardTitle>
