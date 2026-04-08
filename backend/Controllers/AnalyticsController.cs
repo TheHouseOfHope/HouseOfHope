@@ -226,26 +226,63 @@ public class AnalyticsController : ControllerBase
 
     private async Task<List<MonthlyTrendDto>> BuildMonthlyTrendsAsync(CancellationToken ct)
     {
-        var metrics = await _db.SafehouseMonthlyMetrics.AsNoTracking()
-            .GroupBy(m => m.MonthStart)
-            .Select(g => new {
-                Month = g.Key,
-                Residents = g.Sum(x => x.ActiveResidents),
-                Education = g.Average(x => x.AvgEducationProgress != null && x.AvgEducationProgress > 0 ? x.AvgEducationProgress : null),
-                Health = g.Average(x => x.AvgHealthScore != null && x.AvgHealthScore > 0 ? x.AvgHealthScore : null)
-            })
-            .OrderBy(x => x.Month)
+        var eduRecords = await _db.EducationRecords.AsNoTracking()
+            .Where(e => e.RecordDate != null && e.ProgressPercent != null)
+            .ToListAsync(ct);
+        
+        var donationRecords = await _db.Donations.AsNoTracking()
+            .Where(d => d.DonationDate != null)
             .ToListAsync(ct);
 
-        return metrics.TakeLast(12).Select(m =>
+        var donationsByMonth = donationRecords
+            .GroupBy(d => d.DonationDate!.Substring(0, 7))
+            .ToDictionary(g => g.Key, g => g.Sum(d => d.Amount ?? d.EstimatedValue ?? 0));
+
+        var healthRecords = await _db.HealthWellbeingRecords.AsNoTracking()
+            .Where(h => h.RecordDate != null && h.GeneralHealthScore != null)
+            .ToListAsync(ct);
+
+        var residentRecords = await _db.Residents.AsNoTracking()
+            .Where(r => r.DateOfAdmission != null)
+            .ToListAsync(ct);
+
+        var eduByMonth = eduRecords
+            .GroupBy(e => e.RecordDate!.Substring(0, 7))
+            .ToDictionary(g => g.Key, g => g.Average(e => e.ProgressPercent!.Value));
+
+        var healthByMonth = healthRecords
+            .GroupBy(h => h.RecordDate!.Substring(0, 7))
+            .ToDictionary(g => g.Key, g => g.Average(h => h.GeneralHealthScore!.Value));
+
+        var residentsByMonth = residentRecords
+            .GroupBy(r => r.DateOfAdmission!.Substring(0, 7))
+            .ToDictionary(g => g.Key, g => g.Count());
+
+        var allMonths = eduByMonth.Keys
+            .Union(healthByMonth.Keys)
+            .Union(donationsByMonth.Keys)
+            .Where(m => string.Compare(m, "2026-01") < 0)  // only before 2026
+            .OrderByDescending(m => m)
+            .Take(12)
+            .OrderBy(m => m)
+            .ToList();
+
+        return allMonths.Select(month =>
         {
-            DateTime.TryParse(m.Month, out var dt);
+            DateTime.TryParse(month + "-01", out var dt);
+            eduByMonth.TryGetValue(month, out var edu);
+            healthByMonth.TryGetValue(month, out var healthRaw);
+            residentsByMonth.TryGetValue(month, out var residents);
+            donationsByMonth.TryGetValue(month, out var donations);
+
+
             return new MonthlyTrendDto
             {
-                Month = dt != default ? dt.ToString("MMM yy", CultureInfo.InvariantCulture) : m.Month ?? "—",
-                Residents = m.Residents,
-                Education = Math.Round(Math.Min(100, m.Education ?? 0), 1),
-                Health = HouseOfHopeMapper.HealthToPercent(m.Health ?? 3)
+                Month = dt != default ? dt.ToString("MMM yy", CultureInfo.InvariantCulture) : month,
+                Residents = residents,
+                Education = Math.Round(Math.Min(100, edu), 1),
+                Health = HouseOfHopeMapper.HealthToPercent(healthRaw > 0 ? healthRaw : 3),
+                Donations = donations 
             };
         }).ToList();
     }
