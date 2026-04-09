@@ -31,10 +31,21 @@ import { SortableTableHead } from '@/components/SortableTableHead';
 import { useTableSortState } from '@/hooks/useTableSortState';
 import { compareDonationValue, compareRiskLevel, compareText } from '@/lib/tableSort';
 import { buildAdminDonationBody, type UiDonationType } from '@/lib/donationPayload';
+import { EditableSelect } from '@/components/EditableSelect';
+import { mergeDistinctOptions } from '@/lib/residentFieldOptions';
+
+function matchSelectOption(value: string, options: string[]): { select: string; other: string } {
+  const n = value.trim().toLowerCase();
+  const hit = options.find((o) => o.trim().toLowerCase() === n);
+  if (hit) return { select: hit, other: '' };
+  if (!value.trim()) return { select: '', other: '' };
+  return { select: 'other', other: value };
+}
 
 const donorTypeOptions = ['monetary', 'in-kind', 'volunteer', 'skills', 'social-media', 'partner', 'other'];
 const donationTypeOptions: UiDonationType[] = ['monetary', 'in-kind', 'time', 'skills', 'social-media'];
 const channelOptions = ['web portal', 'referral', 'event', 'social media', 'email', 'other'];
+const countrySeeds = ['Philippines', 'United States', 'Canada', 'United Kingdom', 'Australia', 'Japan', 'Singapore'];
 
 function sortStrings(a: string, b: string) {
   return a.localeCompare(b, undefined, { sensitivity: 'base' });
@@ -69,6 +80,7 @@ export default function DonorsContributions() {
     supporterTypeOther: '',
     status: 'active',
     country: '',
+    countryOther: '',
     email: '',
     acquisitionChannel: 'web portal',
     acquisitionChannelOther: '',
@@ -101,6 +113,10 @@ export default function DonorsContributions() {
       [...new Set([...channelOptions, ...supporters.map((s) => (s.acquisitionChannel || '').toLowerCase()).filter(Boolean)])].sort(
         sortStrings,
       ),
+    [supporters],
+  );
+  const countryOptions = useMemo(
+    () => mergeDistinctOptions(supporters.map((s) => s.country).filter(Boolean) as string[], countrySeeds),
     [supporters],
   );
   const normalizedDonations = useMemo(
@@ -185,6 +201,7 @@ export default function DonorsContributions() {
       supporterTypeOther: '',
       status: 'active',
       country: '',
+      countryOther: '',
       email: '',
       acquisitionChannel: 'web portal',
       acquisitionChannelOther: '',
@@ -209,7 +226,8 @@ export default function DonorsContributions() {
         displayName: donorForm.displayName.trim(),
         supporterType,
         status: donorForm.status,
-        country: donorForm.country.trim() || undefined,
+        country:
+          (donorForm.country === 'other' ? donorForm.countryOther : donorForm.country).trim() || undefined,
         email: donorForm.email.trim() || undefined,
         acquisitionChannel: acquisitionChannel?.trim() || undefined,
         firstDonationDate: donorForm.firstDonationDate || undefined,
@@ -451,21 +469,23 @@ export default function DonorsContributions() {
                         size="icon"
                         onClick={() => {
                           setEditingDonor(s);
-                          setDonorForm({
-                            displayName: s.displayName,
-                            supporterType: donorTypeOptions.includes(s.supporterType) ? s.supporterType : 'other',
-                            supporterTypeOther: donorTypeOptions.includes(s.supporterType) ? '' : s.supporterType,
-                            status: s.status,
-                            country: s.country ?? '',
-                            email: '',
-                            acquisitionChannel: channelOptions.includes((s.acquisitionChannel || '').toLowerCase())
-                              ? s.acquisitionChannel.toLowerCase()
-                              : 'other',
-                            acquisitionChannelOther: channelOptions.includes((s.acquisitionChannel || '').toLowerCase())
-                              ? ''
-                              : (s.acquisitionChannel || ''),
-                            firstDonationDate: s.firstDonationDate || '',
-                          });
+                          (() => {
+                            const c = matchSelectOption(s.country ?? '', countryOptions);
+                            const ch = (s.acquisitionChannel || '').toLowerCase();
+                            const chHit = channelValues.some((x) => x.toLowerCase() === ch);
+                            setDonorForm({
+                              displayName: s.displayName,
+                              supporterType: donorTypeOptions.includes(s.supporterType) ? s.supporterType : 'other',
+                              supporterTypeOther: donorTypeOptions.includes(s.supporterType) ? '' : s.supporterType,
+                              status: s.status,
+                              country: c.select === 'other' ? 'other' : c.select,
+                              countryOther: c.other,
+                              email: '',
+                              acquisitionChannel: chHit ? ch : 'other',
+                              acquisitionChannelOther: chHit ? '' : (s.acquisitionChannel || ''),
+                              firstDonationDate: s.firstDonationDate || '',
+                            });
+                          })();
                           setDonorDialogOpen(true);
                         }}
                       >
@@ -693,10 +713,16 @@ export default function DonorsContributions() {
               <Label>Email (optional)</Label>
               <Input value={donorForm.email} onChange={(e) => setDonorForm({ ...donorForm, email: e.target.value })} />
             </div>
-            <div>
-              <Label>Country</Label>
-              <Input value={donorForm.country} onChange={(e) => setDonorForm({ ...donorForm, country: e.target.value })} />
-            </div>
+            <EditableSelect
+              label="Country"
+              allowEmpty
+              placeholder="Select country"
+              value={donorForm.country}
+              customValue={donorForm.countryOther}
+              options={countryOptions}
+              onChange={(v) => setDonorForm({ ...donorForm, country: v })}
+              onCustomChange={(v) => setDonorForm({ ...donorForm, countryOther: v })}
+            />
             <div>
               <Label>Acquisition channel</Label>
               <Select value={donorForm.acquisitionChannel} onValueChange={(v) => setDonorForm({ ...donorForm, acquisitionChannel: v })}>
@@ -731,7 +757,8 @@ export default function DonorsContributions() {
               disabled={
                 saveDonorMutation.isPending ||
                 !donorForm.displayName ||
-                (donorForm.supporterType === 'other' && !donorForm.supporterTypeOther)
+                (donorForm.supporterType === 'other' && !donorForm.supporterTypeOther) ||
+                (donorForm.country === 'other' && !donorForm.countryOther.trim())
               }
             >
               {saveDonorMutation.isPending ? 'Saving...' : 'Save donor'}

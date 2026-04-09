@@ -31,10 +31,10 @@ export function PublicNavbar() {
             <div className="flex items-center gap-3">
               <span className="text-sm text-muted-foreground">Hi, {user?.displayName}</span>
               {hasRole('admin') && (
-                <Button size="sm" variant="outline" onClick={() => navigate('/admin')}>Dashboard</Button>
+                <Button size="sm" variant="outline" onClick={() => navigate('/admin')}>Admin Dashboard</Button>
               )}
               {hasRole('donor') && (
-                <Button size="sm" variant="outline" onClick={() => navigate('/donor-portal')}>My Portal</Button>
+                <Button size="sm" variant="outline" onClick={() => navigate('/donor-portal')}>Donor Portal</Button>
               )}
               <Button size="sm" variant="ghost" onClick={handleLogout}>Logout</Button>
             </div>
@@ -60,8 +60,8 @@ export function PublicNavbar() {
           <Link to="/privacy" className="block text-sm font-medium" onClick={() => setMobileOpen(false)}>Privacy</Link>
           {isAuthenticated ? (
             <>
-              {hasRole('admin') && <Link to="/admin" className="block text-sm font-medium" onClick={() => setMobileOpen(false)}>Dashboard</Link>}
-              {hasRole('donor') && <Link to="/donor-portal" className="block text-sm font-medium" onClick={() => setMobileOpen(false)}>My Portal</Link>}
+              {hasRole('admin') && <Link to="/admin" className="block text-sm font-medium" onClick={() => setMobileOpen(false)}>Admin Dashboard</Link>}
+              {hasRole('donor') && <Link to="/donor-portal" className="block text-sm font-medium" onClick={() => setMobileOpen(false)}>Donor Portal</Link>}
               <button onClick={() => { void handleLogout(); setMobileOpen(false); }} className="block text-sm font-medium text-destructive">Logout</button>
             </>
           ) : (

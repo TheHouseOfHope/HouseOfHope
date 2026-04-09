@@ -35,15 +35,22 @@ function emptyCreateForm() {
     assignedSocialWorker: '',
     assignedSocialWorkerOther: '',
     reintegrationStatus: '',
+    reintegrationStatusOther: '',
     reintegrationType: '',
+    reintegrationTypeOther: '',
     referralSource: '',
+    referralSourceOther: '',
     referringAgency: '',
+    referringAgencyOther: '',
     initialAssessment: '',
     admissionDate: '',
     dateOfBirth: '',
     religion: '',
+    religionOther: '',
     birthStatus: '',
+    birthStatusOther: '',
     placeOfBirth: '',
+    placeOfBirthOther: '',
     subCatOrphaned: false,
     subCatTrafficked: false,
     subCatChildLabor: false,
@@ -139,10 +146,71 @@ export default function CaseloadInventory() {
     ),
     [residents],
   );
+  const reintStatusOptions = useMemo(
+    () =>
+      [...new Set(residents.map((r: Resident) => r.reintegrationStatus).filter(Boolean))].sort((a, b) =>
+        a.localeCompare(b, undefined, { sensitivity: 'base' }),
+      ),
+    [residents],
+  );
+  const reintTypeOptions = useMemo(
+    () =>
+      [...new Set(residents.map((r: Resident) => r.reintegrationType).filter(Boolean))].sort((a, b) =>
+        a.localeCompare(b, undefined, { sensitivity: 'base' }),
+      ),
+    [residents],
+  );
+  const religionOptions = useMemo(
+    () =>
+      [...new Set(residents.map((r: Resident) => r.religion).filter(Boolean))].sort((a, b) =>
+        a.localeCompare(b, undefined, { sensitivity: 'base' }),
+      ),
+    [residents],
+  );
+  const birthStatusOptions = useMemo(
+    () =>
+      [...new Set(residents.map((r: Resident) => r.birthStatus).filter(Boolean))].sort((a, b) =>
+        a.localeCompare(b, undefined, { sensitivity: 'base' }),
+      ),
+    [residents],
+  );
+  const referralSourceOptions = useMemo(
+    () =>
+      [...new Set(residents.map((r: Resident) => r.referralSource).filter(Boolean))].sort((a, b) =>
+        a.localeCompare(b, undefined, { sensitivity: 'base' }),
+      ),
+    [residents],
+  );
+  const referringAgencyOptions = useMemo(
+    () =>
+      [...new Set(residents.map((r: Resident) => r.referringAgency).filter(Boolean))].sort((a, b) =>
+        a.localeCompare(b, undefined, { sensitivity: 'base' }),
+      ),
+    [residents],
+  );
+  const placeOfBirthOptions = useMemo(
+    () =>
+      [...new Set(residents.map((r: Resident) => r.placeOfBirth).filter(Boolean))].sort((a, b) =>
+        a.localeCompare(b, undefined, { sensitivity: 'base' }),
+      ),
+    [residents],
+  );
 
   const resolvedCategory = createForm.caseCategory === 'other' ? createForm.caseCategoryOther : createForm.caseCategory;
   const resolvedWorker =
     createForm.assignedSocialWorker === 'other' ? createForm.assignedSocialWorkerOther : createForm.assignedSocialWorker;
+  const resolvedReintStatus =
+    createForm.reintegrationStatus === 'other' ? createForm.reintegrationStatusOther : createForm.reintegrationStatus;
+  const resolvedReintType =
+    createForm.reintegrationType === 'other' ? createForm.reintegrationTypeOther : createForm.reintegrationType;
+  const resolvedReligion = createForm.religion === 'other' ? createForm.religionOther : createForm.religion;
+  const resolvedBirthStatus = createForm.birthStatus === 'other' ? createForm.birthStatusOther : createForm.birthStatus;
+  const resolvedReferralSource =
+    createForm.referralSource === 'other' ? createForm.referralSourceOther : createForm.referralSource;
+  const resolvedReferringAgency =
+    createForm.referringAgency === 'other' ? createForm.referringAgencyOther : createForm.referringAgency;
+  const resolvedPlaceOfBirth =
+    createForm.placeOfBirth === 'other' ? createForm.placeOfBirthOther : createForm.placeOfBirth;
 
   const createResidentMutation = useMutation({
     mutationFn: () =>
@@ -154,16 +222,16 @@ export default function CaseloadInventory() {
         caseCategory: resolvedCategory,
         riskLevel: createForm.riskLevel,
         assignedSocialWorker: resolvedWorker,
-        reintegrationStatus: createForm.reintegrationStatus || undefined,
-        reintegrationType: createForm.reintegrationType || undefined,
-        referralSource: createForm.referralSource || undefined,
-        referringAgency: createForm.referringAgency || undefined,
+        reintegrationStatus: resolvedReintStatus.trim() || undefined,
+        reintegrationType: resolvedReintType.trim() || undefined,
+        referralSource: resolvedReferralSource.trim() || undefined,
+        referringAgency: resolvedReferringAgency.trim() || undefined,
         initialAssessment: createForm.initialAssessment || undefined,
         admissionDate: createForm.admissionDate || undefined,
         dateOfBirth: createForm.dateOfBirth || undefined,
-        religion: createForm.religion || undefined,
-        birthStatus: createForm.birthStatus || undefined,
-        placeOfBirth: createForm.placeOfBirth || undefined,
+        religion: resolvedReligion.trim() || undefined,
+        birthStatus: resolvedBirthStatus.trim() || undefined,
+        placeOfBirth: resolvedPlaceOfBirth.trim() || undefined,
         subCatOrphaned: createForm.subCatOrphaned,
         subCatTrafficked: createForm.subCatTrafficked,
         subCatChildLabor: createForm.subCatChildLabor,
@@ -476,19 +544,37 @@ export default function CaseloadInventory() {
                   </div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <Label>Religion</Label>
-                    <Input value={createForm.religion} onChange={(e) => setCreateForm({ ...createForm, religion: e.target.value })} />
-                  </div>
-                  <div>
-                    <Label>Birth status</Label>
-                    <Input value={createForm.birthStatus} onChange={(e) => setCreateForm({ ...createForm, birthStatus: e.target.value })} />
-                  </div>
+                  <EditableSelect
+                    label="Religion"
+                    allowEmpty
+                    placeholder="Select religion"
+                    value={createForm.religion}
+                    customValue={createForm.religionOther}
+                    options={religionOptions}
+                    onChange={(v) => setCreateForm({ ...createForm, religion: v })}
+                    onCustomChange={(v) => setCreateForm({ ...createForm, religionOther: v })}
+                  />
+                  <EditableSelect
+                    label="Birth status"
+                    allowEmpty
+                    placeholder="Select birth status"
+                    value={createForm.birthStatus}
+                    customValue={createForm.birthStatusOther}
+                    options={birthStatusOptions}
+                    onChange={(v) => setCreateForm({ ...createForm, birthStatus: v })}
+                    onCustomChange={(v) => setCreateForm({ ...createForm, birthStatusOther: v })}
+                  />
                 </div>
-                <div>
-                  <Label>Place of birth</Label>
-                  <Input value={createForm.placeOfBirth} onChange={(e) => setCreateForm({ ...createForm, placeOfBirth: e.target.value })} />
-                </div>
+                <EditableSelect
+                  label="Place of birth"
+                  allowEmpty
+                  placeholder="Select place of birth"
+                  value={createForm.placeOfBirth}
+                  customValue={createForm.placeOfBirthOther}
+                  options={placeOfBirthOptions}
+                  onChange={(v) => setCreateForm({ ...createForm, placeOfBirth: v })}
+                  onCustomChange={(v) => setCreateForm({ ...createForm, placeOfBirthOther: v })}
+                />
               </div>
 
               <div className="grid gap-2">
@@ -543,24 +629,48 @@ export default function CaseloadInventory() {
               <div className="grid gap-3">
                 <p className="text-sm font-medium text-foreground">Referral &amp; reintegration</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <Label>Referral source</Label>
-                    <Input value={createForm.referralSource} onChange={(e) => setCreateForm({ ...createForm, referralSource: e.target.value })} />
-                  </div>
-                  <div>
-                    <Label>Referring agency / person</Label>
-                    <Input value={createForm.referringAgency} onChange={(e) => setCreateForm({ ...createForm, referringAgency: e.target.value })} />
-                  </div>
+                  <EditableSelect
+                    label="Referral source"
+                    allowEmpty
+                    placeholder="Select referral source"
+                    value={createForm.referralSource}
+                    customValue={createForm.referralSourceOther}
+                    options={referralSourceOptions}
+                    onChange={(v) => setCreateForm({ ...createForm, referralSource: v })}
+                    onCustomChange={(v) => setCreateForm({ ...createForm, referralSourceOther: v })}
+                  />
+                  <EditableSelect
+                    label="Referring agency / person"
+                    allowEmpty
+                    placeholder="Select agency or person"
+                    value={createForm.referringAgency}
+                    customValue={createForm.referringAgencyOther}
+                    options={referringAgencyOptions}
+                    onChange={(v) => setCreateForm({ ...createForm, referringAgency: v })}
+                    onCustomChange={(v) => setCreateForm({ ...createForm, referringAgencyOther: v })}
+                  />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <Label>Reintegration status</Label>
-                    <Input value={createForm.reintegrationStatus} onChange={(e) => setCreateForm({ ...createForm, reintegrationStatus: e.target.value })} />
-                  </div>
-                  <div>
-                    <Label>Reintegration type</Label>
-                    <Input value={createForm.reintegrationType} onChange={(e) => setCreateForm({ ...createForm, reintegrationType: e.target.value })} />
-                  </div>
+                  <EditableSelect
+                    label="Reintegration status"
+                    allowEmpty
+                    placeholder="Select status"
+                    value={createForm.reintegrationStatus}
+                    customValue={createForm.reintegrationStatusOther}
+                    options={reintStatusOptions}
+                    onChange={(v) => setCreateForm({ ...createForm, reintegrationStatus: v })}
+                    onCustomChange={(v) => setCreateForm({ ...createForm, reintegrationStatusOther: v })}
+                  />
+                  <EditableSelect
+                    label="Reintegration type"
+                    allowEmpty
+                    placeholder="Select type"
+                    value={createForm.reintegrationType}
+                    customValue={createForm.reintegrationTypeOther}
+                    options={reintTypeOptions}
+                    onChange={(v) => setCreateForm({ ...createForm, reintegrationType: v })}
+                    onCustomChange={(v) => setCreateForm({ ...createForm, reintegrationTypeOther: v })}
+                  />
                 </div>
                 <div>
                   <Label>Initial assessment</Label>

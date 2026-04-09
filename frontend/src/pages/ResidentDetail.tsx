@@ -95,13 +95,16 @@ export default function ResidentDetail() {
     reintegrationStatus: '',
     reintegrationType: '',
     referralSource: '',
+    referralSourceOther: '',
     referringAgency: '',
+    referringAgencyOther: '',
     initialAssessment: '',
     admissionDate: '',
     dateOfBirth: '',
     religion: '',
     birthStatus: '',
     placeOfBirth: '',
+    placeOfBirthOther: '',
     subCatOrphaned: false,
     subCatTrafficked: false,
     subCatChildLabor: false,
@@ -227,6 +230,27 @@ export default function ResidentDetail() {
       ),
     [allResidents],
   );
+  const referralSourceOptions = useMemo(
+    () =>
+      [...new Set(allResidents.map((r: Resident) => r.referralSource).filter(Boolean))].sort((a, b) =>
+        a.localeCompare(b, undefined, { sensitivity: 'base' }),
+      ),
+    [allResidents],
+  );
+  const referringAgencyOptions = useMemo(
+    () =>
+      [...new Set(allResidents.map((r: Resident) => r.referringAgency).filter(Boolean))].sort((a, b) =>
+        a.localeCompare(b, undefined, { sensitivity: 'base' }),
+      ),
+    [allResidents],
+  );
+  const placeOfBirthOptions = useMemo(
+    () =>
+      [...new Set(allResidents.map((r: Resident) => r.placeOfBirth).filter(Boolean))].sort((a, b) =>
+        a.localeCompare(b, undefined, { sensitivity: 'base' }),
+      ),
+    [allResidents],
+  );
   const sessionsQ = useQuery({
     queryKey: ['resident', id, 'sessions'],
     queryFn: () => fetchResidentSessions(id!),
@@ -344,14 +368,16 @@ export default function ResidentDetail() {
         residentForm.reintegrationStatus === 'other' ? residentForm.reintegrationStatusOther : residentForm.reintegrationStatus,
       reintegrationType:
         residentForm.reintegrationType === 'other' ? residentForm.reintegrationTypeOther : residentForm.reintegrationType,
-      referralSource: residentForm.referralSource,
-      referringAgency: residentForm.referringAgency,
+      referralSource:
+        residentForm.referralSource === 'other' ? residentForm.referralSourceOther : residentForm.referralSource,
+      referringAgency:
+        residentForm.referringAgency === 'other' ? residentForm.referringAgencyOther : residentForm.referringAgency,
       initialAssessment: residentForm.initialAssessment,
       admissionDate: residentForm.admissionDate,
       dateOfBirth: residentForm.dateOfBirth,
       religion: residentForm.religion === 'other' ? residentForm.religionOther : residentForm.religion,
       birthStatus: residentForm.birthStatus === 'other' ? residentForm.birthStatusOther : residentForm.birthStatus,
-      placeOfBirth: residentForm.placeOfBirth,
+      placeOfBirth: residentForm.placeOfBirth === 'other' ? residentForm.placeOfBirthOther : residentForm.placeOfBirth,
       subCatOrphaned: residentForm.subCatOrphaned,
       subCatTrafficked: residentForm.subCatTrafficked,
       subCatChildLabor: residentForm.subCatChildLabor,
@@ -523,6 +549,9 @@ export default function ResidentDetail() {
                     const rel = matchSelectOption(resident.religion, religionOptions);
                     const bs = matchSelectOption(resident.birthStatus, birthStatusOptions);
                     const cc = matchSelectOption(resident.caseCategory, caseCategoryOptions);
+                    const refSrc = matchSelectOption(resident.referralSource, referralSourceOptions);
+                    const refAg = matchSelectOption(resident.referringAgency, referringAgencyOptions);
+                    const pob = matchSelectOption(resident.placeOfBirth, placeOfBirthOptions);
                     setResidentForm({
                       caseControlNumber: resident.caseControlNumber,
                       internalCode: resident.internalCode,
@@ -537,8 +566,10 @@ export default function ResidentDetail() {
                       reintegrationStatusOther: rs.other,
                       reintegrationType: rt.select === 'other' ? 'other' : rt.select,
                       reintegrationTypeOther: rt.other,
-                      referralSource: resident.referralSource,
-                      referringAgency: resident.referringAgency,
+                      referralSource: refSrc.select === 'other' ? 'other' : refSrc.select,
+                      referralSourceOther: refSrc.other,
+                      referringAgency: refAg.select === 'other' ? 'other' : refAg.select,
+                      referringAgencyOther: refAg.other,
                       initialAssessment: resident.initialAssessment,
                       admissionDate: resident.admissionDate,
                       dateOfBirth: resident.dateOfBirth,
@@ -546,7 +577,8 @@ export default function ResidentDetail() {
                       religionOther: rel.other,
                       birthStatus: bs.select === 'other' ? 'other' : bs.select,
                       birthStatusOther: bs.other,
-                      placeOfBirth: resident.placeOfBirth,
+                      placeOfBirth: pob.select === 'other' ? 'other' : pob.select,
+                      placeOfBirthOther: pob.other,
                       subCatOrphaned: hasSub('orphaned'),
                       subCatTrafficked: hasSub('trafficked'),
                       subCatChildLabor: hasSub('child-labor'),
@@ -1323,7 +1355,16 @@ export default function ResidentDetail() {
                   onCustomChange={(v) => setResidentForm({ ...residentForm, birthStatusOther: v })}
                 />
               </div>
-              <div><Label>Place of birth</Label><Input value={residentForm.placeOfBirth} onChange={(e) => setResidentForm({ ...residentForm, placeOfBirth: e.target.value })} /></div>
+              <EditableSelect
+                label="Place of birth"
+                allowEmpty
+                placeholder="Select place of birth"
+                value={residentForm.placeOfBirth}
+                customValue={residentForm.placeOfBirthOther}
+                options={placeOfBirthOptions}
+                onChange={(v) => setResidentForm({ ...residentForm, placeOfBirth: v })}
+                onCustomChange={(v) => setResidentForm({ ...residentForm, placeOfBirthOther: v })}
+              />
             </div>
             <div className="grid gap-2">
               <p className="text-sm font-medium text-foreground">Case subcategories</p>
@@ -1375,8 +1416,26 @@ export default function ResidentDetail() {
             <div className="grid gap-3">
               <p className="text-sm font-medium text-foreground">Referral &amp; reintegration</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div><Label>Referral source</Label><Input value={residentForm.referralSource} onChange={(e) => setResidentForm({ ...residentForm, referralSource: e.target.value })} /></div>
-                <div><Label>Referring agency / person</Label><Input value={residentForm.referringAgency} onChange={(e) => setResidentForm({ ...residentForm, referringAgency: e.target.value })} /></div>
+                <EditableSelect
+                  label="Referral source"
+                  allowEmpty
+                  placeholder="Select referral source"
+                  value={residentForm.referralSource}
+                  customValue={residentForm.referralSourceOther}
+                  options={referralSourceOptions}
+                  onChange={(v) => setResidentForm({ ...residentForm, referralSource: v })}
+                  onCustomChange={(v) => setResidentForm({ ...residentForm, referralSourceOther: v })}
+                />
+                <EditableSelect
+                  label="Referring agency / person"
+                  allowEmpty
+                  placeholder="Select agency or person"
+                  value={residentForm.referringAgency}
+                  customValue={residentForm.referringAgencyOther}
+                  options={referringAgencyOptions}
+                  onChange={(v) => setResidentForm({ ...residentForm, referringAgency: v })}
+                  onCustomChange={(v) => setResidentForm({ ...residentForm, referringAgencyOther: v })}
+                />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <EditableSelect
