@@ -162,7 +162,3 @@ app.MapGroup("/api/auth")
     .MapIdentityApi<ApplicationUser>();
 
 app.Run();
-
-
-// Sanity check: Gated startup is active.
-// WEBSITE_RUN_FROM_PACKAGE is set to 1.
