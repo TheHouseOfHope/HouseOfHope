@@ -158,6 +158,7 @@ using (var scope = app.Services.CreateScope())
         // If you ever need one-time reseed/reinit, temporarily uncomment:
         // await appDb.Database.MigrateAsync();
         DataSeeder.Seed(appDb, app.Environment.ContentRootPath);
+        // TODO: Add public impact snapshot seeding
         // await identityDb.Database.MigrateAsync();
         // await AuthIdentityGenerator.GenerateDefaultIdentityAsync(services, app.Configuration);
     }
