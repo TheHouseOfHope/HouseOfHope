@@ -33,6 +33,8 @@ public class CounselingSessionDto
 {
     public string Id { get; set; } = "";
     public string ResidentId { get; set; } = "";
+    /// <summary>Populated on aggregate list endpoints (e.g. all process recordings).</summary>
+    public string ResidentInternalCode { get; set; } = "";
     public string SessionDate { get; set; } = "";
     public string SocialWorker { get; set; } = "";
     public string SessionType { get; set; } = "";
@@ -67,6 +69,8 @@ public class InterventionPlanDto
 {
     public string Id { get; set; } = "";
     public string ResidentId { get; set; } = "";
+    /// <summary>Populated on aggregate list endpoints.</summary>
+    public string ResidentInternalCode { get; set; } = "";
     public string PlanCategory { get; set; } = "";
     public string Description { get; set; } = "";
     public string ServicesProvided { get; set; } = "";
@@ -79,12 +83,21 @@ public class SupporterDto
 {
     public string Id { get; set; } = "";
     public string DisplayName { get; set; } = "";
+    public string? Email { get; set; }
+    public bool HasLinkedLogin { get; set; }
+    public bool HasAdminRole { get; set; }
     public string SupporterType { get; set; } = "";
     public string Status { get; set; } = "";
     public string Country { get; set; } = "";
     public string AcquisitionChannel { get; set; } = "";
     public string FirstDonationDate { get; set; } = "";
     public string ChurnRisk { get; set; } = "";
+}
+
+public class UnlinkedLoginDto
+{
+    public string UserId { get; set; } = "";
+    public string Email { get; set; } = "";
 }
 
 public class DonationDto

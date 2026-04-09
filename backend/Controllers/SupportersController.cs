@@ -2,6 +2,7 @@ using HouseOfHope.API.Contracts;
 using HouseOfHope.API.Data;
 using HouseOfHope.API.Services;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -12,17 +13,75 @@ namespace HouseOfHope.API.Controllers;
 public class SupportersController : ControllerBase
 {
     private readonly LighthouseDbContext _db;
+    private readonly UserManager<ApplicationUser> _userManager;
 
-    public SupportersController(LighthouseDbContext db) => _db = db;
+    public SupportersController(LighthouseDbContext db, UserManager<ApplicationUser> userManager)
+    {
+        _db = db;
+        _userManager = userManager;
+    }
 
     [HttpGet]
     [Authorize(Policy = AuthPolicies.ManageData)]
     public async Task<ActionResult<List<SupporterDto>>> GetAll(CancellationToken ct)
     {
+        var usersWithEmail = await _userManager.Users
+            .Where(u => !string.IsNullOrEmpty(u.Email))
+            .ToListAsync(ct);
+        var existingSupporterEmails = await _db.Supporters.AsNoTracking()
+            .Where(s => s.Email != null && s.Email != "")
+            .Select(s => s.Email!.Trim().ToLower())
+            .ToListAsync(ct);
+        var existingSupporterEmailSet = existingSupporterEmails.ToHashSet();
+        var donorUsers = await _userManager.GetUsersInRoleAsync(AuthRoles.Donor);
+        var missingDonorUsers = donorUsers
+            .Where(u => !string.IsNullOrWhiteSpace(u.Email))
+            .Where(u => !existingSupporterEmailSet.Contains((u.Email ?? "").Trim().ToLower()))
+            .ToList();
+        if (missingDonorUsers.Count > 0)
+        {
+            foreach (var user in missingDonorUsers)
+            {
+                var email = (user.Email ?? "").Trim();
+                var displayName = email.Contains('@')
+                    ? email[..email.IndexOf('@')]
+                    : email;
+                _db.Supporters.Add(new Supporter
+                {
+                    DisplayName = displayName,
+                    Email = email,
+                    SupporterType = "MonetaryDonor",
+                    Status = "Inactive",
+                    AcquisitionChannel = "Website"
+                });
+            }
+            await _db.SaveChangesAsync(ct);
+        }
+
         var list = await _db.Supporters.AsNoTracking()
             .OrderBy(s => s.DisplayName)
             .ToListAsync(ct);
-        return list.Select(ToDto).ToList();
+        var loginEmails = usersWithEmail
+            .Select(u => (u.Email ?? "").Trim().ToLower())
+            .ToHashSet();
+        var adminEmails = new HashSet<string>();
+        foreach (var user in usersWithEmail)
+        {
+            if (string.IsNullOrWhiteSpace(user.Email)) continue;
+            if (await _userManager.IsInRoleAsync(user, AuthRoles.Admin))
+            {
+                adminEmails.Add(user.Email.Trim().ToLower());
+            }
+        }
+
+        return list.Select(s =>
+        {
+            var emailKey = (s.Email ?? "").Trim().ToLower();
+            return ToDto(
+                s,
+                hasLinkedLogin: loginEmails.Contains(emailKey),
+                hasAdminRole: adminEmails.Contains(emailKey));
+        }).ToList();
     }
 
     [HttpPost]
@@ -42,7 +101,18 @@ public class SupportersController : ControllerBase
         };
         _db.Supporters.Add(entity);
         await _db.SaveChangesAsync(ct);
-        return Created($"/api/supporters/{entity.SupporterId}", ToDto(entity));
+        var hasLinkedLogin = !string.IsNullOrWhiteSpace(entity.Email) &&
+                             await _userManager.FindByEmailAsync(entity.Email) != null;
+        var hasAdminRole = false;
+        if (hasLinkedLogin && !string.IsNullOrWhiteSpace(entity.Email))
+        {
+            var linkedUser = await _userManager.FindByEmailAsync(entity.Email);
+            if (linkedUser != null)
+            {
+                hasAdminRole = await _userManager.IsInRoleAsync(linkedUser, AuthRoles.Admin);
+            }
+        }
+        return Created($"/api/supporters/{entity.SupporterId}", ToDto(entity, hasLinkedLogin, hasAdminRole));
     }
 
     [HttpPut("{id:int}")]
@@ -81,10 +151,13 @@ public class SupportersController : ControllerBase
         return NoContent();
     }
 
-    private static SupporterDto ToDto(Supporter s) => new()
+    private static SupporterDto ToDto(Supporter s, bool hasLinkedLogin, bool hasAdminRole) => new()
     {
         Id = s.SupporterId.ToString(),
         DisplayName = s.DisplayName,
+        Email = s.Email,
+        HasLinkedLogin = hasLinkedLogin,
+        HasAdminRole = hasAdminRole,
         SupporterType = HouseOfHopeMapper.MapSupporterType(s.SupporterType),
         Status = string.Equals(s.Status, "Inactive", StringComparison.OrdinalIgnoreCase) ? "inactive" : "active",
         Country = s.Country ?? s.Region ?? "",

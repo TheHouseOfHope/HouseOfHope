@@ -44,6 +44,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: .net-app
+          path: ./.net-app
       
       - name: Deploy to Azure Web App
         id: deploy-to-webapp
@@ -51,5 +52,5 @@ jobs:
         with:
           app-name: 'HouseOfHope-backend'
           slot-name: 'Production'
-          package: .
+          package: ./.net-app
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_5F934A489F0D4DD68C00DF01D68EC229 }}

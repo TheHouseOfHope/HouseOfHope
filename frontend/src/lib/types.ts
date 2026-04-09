@@ -41,6 +41,8 @@ export interface Resident {
 export interface CounselingSession {
   id: string;
   residentId: string;
+  /** Present on organization-wide list responses. */
+  residentInternalCode?: string;
   sessionDate: string;
   socialWorker: string;
   sessionType: 'individual' | 'group';
@@ -73,6 +75,8 @@ export interface Visitation {
 export interface InterventionPlan {
   id: string;
   residentId: string;
+  /** Present on organization-wide list responses. */
+  residentInternalCode?: string;
   planCategory: string;
   description: string;
   servicesProvided: string;
@@ -86,6 +90,9 @@ export type SupporterType = 'monetary' | 'in-kind' | 'volunteer' | 'skills' | 's
 export interface Supporter {
   id: string;
   displayName: string;
+  email?: string;
+  hasLinkedLogin?: boolean;
+  hasAdminRole?: boolean;
   supporterType: SupporterType;
   status: 'active' | 'inactive';
   country: string;

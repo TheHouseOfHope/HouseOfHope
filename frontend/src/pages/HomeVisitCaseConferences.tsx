@@ -10,12 +10,26 @@ import {
   updateResidentVisitation,
 } from '@/lib/api-endpoints';
 import type { Resident, Visitation } from '@/lib/types';
+import { EditableSelect } from '@/components/EditableSelect';
+import { toTitleCase } from '@/lib/titleCase';
+import {
+  COOPERATION_LEVEL_OPTIONS,
+  VISIT_OUTCOME_OPTIONS,
+  VISIT_TYPE_OPTIONS,
+  labelFromCooperationSlug,
+  labelFromVisitOutcomeSlug,
+  labelFromVisitTypeSlug,
+  mergeDistinctOptions,
+  slugForCooperation,
+  slugForVisitOutcome,
+  slugForVisitType,
+} from '@/lib/residentFieldOptions';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Search, Plus, Pencil, Trash2 } from 'lucide-react';
+import { Search, Plus, Pencil, Trash2, MapPinned } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -28,13 +42,13 @@ import { useTableSortState } from '@/hooks/useTableSortState';
 import { compareText } from '@/lib/tableSort';
 import { Checkbox } from '@/components/ui/checkbox';
 
-const VISIT_TYPES = [
-  'Initial Assessment',
-  'Routine Follow-Up',
-  'Reintegration Assessment',
-  'Post-Placement Monitoring',
-  'Emergency',
-];
+function matchSelectOption(value: string, options: string[]): { select: string; other: string } {
+  const n = value.trim().toLowerCase();
+  const hit = options.find((o) => o.trim().toLowerCase() === n);
+  if (hit) return { select: hit, other: '' };
+  if (!value.trim()) return { select: '', other: '' };
+  return { select: 'other', other: value };
+}
 
 function parseDateLoose(s: string): number {
   const t = Date.parse(s);
@@ -59,15 +73,22 @@ export default function HomeVisitCaseConferences() {
     residentId: '',
     visitDate: new Date().toISOString().slice(0, 10),
     socialWorker: '',
-    visitType: 'Initial Assessment',
+    socialWorkerOther: '',
+    visitType: '',
+    visitTypeOther: '',
     location: '',
+    locationOther: '',
     familyMembersPresent: '',
+    familyMembersPresentOther: '',
     purpose: '',
+    purposeOther: '',
     observations: '',
-    familyCooperationLevel: 'Cooperative',
+    familyCooperationLevel: '',
+    cooperationOther: '',
     safetyConcernsNoted: false,
     followUpNeeded: false,
-    visitOutcome: 'Favorable',
+    visitOutcome: '',
+    outcomeOther: '',
   });
 
   const visitQ = useQuery({ queryKey: ['visitations-all'], queryFn: fetchAllVisitations });
@@ -84,8 +105,29 @@ export default function HomeVisitCaseConferences() {
     [residentQ.data],
   );
 
+  const visitSocialWorkerOptions = useMemo(
+    () =>
+      mergeDistinctOptions(
+        (visitQ.data ?? []).map((v) => v.socialWorker),
+        (residentQ.data ?? []).map((r) => r.assignedSocialWorker),
+      ),
+    [visitQ.data, residentQ.data],
+  );
+  const visitLocationOptions = useMemo(
+    () => mergeDistinctOptions((visitQ.data ?? []).map((v) => v.location)),
+    [visitQ.data],
+  );
+  const visitFamilyPresentOptions = useMemo(
+    () => mergeDistinctOptions((visitQ.data ?? []).map((v) => v.familyMembersPresent)),
+    [visitQ.data],
+  );
+  const visitPurposeOptions = useMemo(
+    () => mergeDistinctOptions((visitQ.data ?? []).map((v) => v.purpose)),
+    [visitQ.data],
+  );
+
   const visitTypesFromData = useMemo(() => {
-    const s = new Set(VISIT_TYPES);
+    const s = new Set<string>(VISIT_TYPE_OPTIONS.map((o) => o.label));
     (visitQ.data ?? []).forEach((v) => {
       if (v.visitType) s.add(v.visitType);
     });
@@ -172,22 +214,41 @@ export default function HomeVisitCaseConferences() {
     });
   }, [pastConferences, pastSortKey, pastSortDir]);
 
+  const buildVisitPayload = () => {
+    const socialWorker =
+      visitForm.socialWorker === 'other'
+        ? visitForm.socialWorkerOther.trim()
+        : visitForm.socialWorker.trim();
+    const visitType = labelFromVisitTypeSlug(visitForm.visitType, visitForm.visitTypeOther);
+    const location =
+      visitForm.location === 'other' ? toTitleCase(visitForm.locationOther) : visitForm.location.trim();
+    const familyMembersPresent =
+      visitForm.familyMembersPresent === 'other'
+        ? toTitleCase(visitForm.familyMembersPresentOther)
+        : visitForm.familyMembersPresent.trim();
+    const purpose =
+      visitForm.purpose === 'other' ? toTitleCase(visitForm.purposeOther) : visitForm.purpose.trim();
+    const familyCooperationLevel = labelFromCooperationSlug(visitForm.familyCooperationLevel, visitForm.cooperationOther);
+    const visitOutcome = labelFromVisitOutcomeSlug(visitForm.visitOutcome, visitForm.outcomeOther);
+    return {
+      visitDate: visitForm.visitDate,
+      socialWorker,
+      visitType,
+      location,
+      familyMembersPresent,
+      purpose,
+      observations: visitForm.observations.trim(),
+      familyCooperationLevel,
+      safetyConcernsNoted: visitForm.safetyConcernsNoted,
+      followUpNeeded: visitForm.followUpNeeded,
+      visitOutcome,
+    };
+  };
+
   const saveVisitMutation = useMutation({
     mutationFn: async () => {
       const rid = visitForm.residentId;
-      const payload = {
-        visitDate: visitForm.visitDate,
-        socialWorker: visitForm.socialWorker,
-        visitType: visitForm.visitType,
-        location: visitForm.location,
-        familyMembersPresent: visitForm.familyMembersPresent,
-        purpose: visitForm.purpose,
-        observations: visitForm.observations,
-        familyCooperationLevel: visitForm.familyCooperationLevel,
-        safetyConcernsNoted: visitForm.safetyConcernsNoted,
-        followUpNeeded: visitForm.followUpNeeded,
-        visitOutcome: visitForm.visitOutcome,
-      };
+      const payload = buildVisitPayload();
       if (editingVisit) return updateResidentVisitation(rid, editingVisit.id, payload);
       return createResidentVisitation(rid, payload);
     },
@@ -217,34 +278,55 @@ export default function HomeVisitCaseConferences() {
       residentId: residentsSorted[0]?.id ?? '',
       visitDate: new Date().toISOString().slice(0, 10),
       socialWorker: '',
-      visitType: 'Initial Assessment',
+      socialWorkerOther: '',
+      visitType: '',
+      visitTypeOther: '',
       location: '',
+      locationOther: '',
       familyMembersPresent: '',
+      familyMembersPresentOther: '',
       purpose: '',
+      purposeOther: '',
       observations: '',
-      familyCooperationLevel: 'Cooperative',
+      familyCooperationLevel: '',
+      cooperationOther: '',
       safetyConcernsNoted: false,
       followUpNeeded: false,
-      visitOutcome: 'Favorable',
+      visitOutcome: '',
+      outcomeOther: '',
     });
     setVisitDialogOpen(true);
   };
 
   const openEditVisit = (v: Visitation) => {
     setEditingVisit(v);
+    const sw = matchSelectOption(v.socialWorker, visitSocialWorkerOptions);
+    const loc = matchSelectOption(v.location, visitLocationOptions);
+    const fam = matchSelectOption(v.familyMembersPresent, visitFamilyPresentOptions);
+    const pur = matchSelectOption(v.purpose, visitPurposeOptions);
+    const vt = slugForVisitType(v.visitType);
+    const coop = slugForCooperation(v.familyCooperationLevel || '');
+    const out = slugForVisitOutcome(v.visitOutcome || '');
     setVisitForm({
       residentId: v.residentId,
       visitDate: v.visitDate,
-      socialWorker: v.socialWorker,
-      visitType: VISIT_TYPES.includes(v.visitType) ? v.visitType : v.visitType,
-      location: v.location,
-      familyMembersPresent: v.familyMembersPresent,
-      purpose: v.purpose,
+      socialWorker: sw.select === 'other' ? 'other' : sw.select,
+      socialWorkerOther: sw.select === 'other' ? sw.other : '',
+      visitType: vt,
+      visitTypeOther: vt === 'other' ? v.visitType : '',
+      location: loc.select === 'other' ? 'other' : loc.select,
+      locationOther: loc.select === 'other' ? loc.other : '',
+      familyMembersPresent: fam.select === 'other' ? 'other' : fam.select,
+      familyMembersPresentOther: fam.select === 'other' ? fam.other : '',
+      purpose: pur.select === 'other' ? 'other' : pur.select,
+      purposeOther: pur.select === 'other' ? pur.other : '',
       observations: v.observations,
-      familyCooperationLevel: v.familyCooperationLevel || 'Cooperative',
+      familyCooperationLevel: coop,
+      cooperationOther: coop === 'other' ? (v.familyCooperationLevel || '') : '',
       safetyConcernsNoted: v.safetyConcernsNoted,
       followUpNeeded: v.followUpNeeded,
-      visitOutcome: v.visitOutcome || 'Favorable',
+      visitOutcome: out,
+      outcomeOther: out === 'other' ? (v.visitOutcome || '') : '',
     });
     setVisitDialogOpen(true);
   };
@@ -252,7 +334,10 @@ export default function HomeVisitCaseConferences() {
   if (visitQ.error || confQ.error) {
     return (
       <div className="space-y-2">
-        <h1 className="text-3xl font-display font-bold text-foreground">Home visitations &amp; case conferences</h1>
+        <h1 className="text-3xl font-display font-bold text-foreground flex items-center gap-2">
+          <MapPinned className="h-8 w-8 text-primary shrink-0" />
+          Home Visitations &amp; Case Conferences
+        </h1>
         <p className="text-destructive text-sm">Could not load records from the API.</p>
       </div>
     );
@@ -261,7 +346,10 @@ export default function HomeVisitCaseConferences() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <h1 className="text-3xl font-display font-bold text-foreground">Home visitations &amp; case conferences</h1>
+        <h1 className="text-3xl font-display font-bold text-foreground flex items-center gap-2">
+          <MapPinned className="h-8 w-8 text-primary shrink-0" />
+          Home Visitations &amp; Case Conferences
+        </h1>
         <Button onClick={() => openNewVisit()}>
           <Plus className="h-4 w-4 mr-2" /> Log visitation
         </Button>
@@ -330,16 +418,11 @@ export default function HomeVisitCaseConferences() {
         </TabsList>
 
         <TabsContent value="visitations" className="mt-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Home / field visits</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {visitQ.isLoading || residentQ.isLoading ? (
-                <Skeleton className="h-48 w-full" />
-              ) : (
-                <div className="overflow-x-auto">
-                  <Table>
+          <div className="bg-card rounded-xl border shadow-sm overflow-x-auto">
+            {visitQ.isLoading || residentQ.isLoading ? (
+              <Skeleton className="h-48 w-full rounded-xl" />
+            ) : (
+                <Table className="table-striped">
                     <TableHeader>
                       <TableRow>
                         <SortableTableHead
@@ -406,10 +489,8 @@ export default function HomeVisitCaseConferences() {
                       ))}
                     </TableBody>
                   </Table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+            )}
+          </div>
         </TabsContent>
 
         <TabsContent value="conferences" className="mt-4 space-y-6">
@@ -421,7 +502,7 @@ export default function HomeVisitCaseConferences() {
               {confQ.isLoading ? (
                 <Skeleton className="h-32 w-full" />
               ) : (
-                <Table>
+                <Table className="table-striped">
                   <TableHeader>
                     <TableRow>
                       <SortableTableHead
@@ -471,7 +552,7 @@ export default function HomeVisitCaseConferences() {
               {confQ.isLoading ? (
                 <Skeleton className="h-32 w-full" />
               ) : (
-                <Table>
+                <Table className="table-striped">
                   <TableHeader>
                     <TableRow>
                       <SortableTableHead
@@ -514,12 +595,12 @@ export default function HomeVisitCaseConferences() {
       </Tabs>
 
       <Dialog open={visitDialogOpen} onOpenChange={setVisitDialogOpen}>
-        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col gap-0 p-0 overflow-hidden">
+          <DialogHeader className="px-6 pt-6 pb-2 shrink-0">
             <DialogTitle className="font-display">{editingVisit ? 'Edit visitation' : 'Log visitation'}</DialogTitle>
           </DialogHeader>
-          <div className="grid gap-3">
-            <div>
+          <div className="overflow-y-auto px-6 pb-4 flex-1 min-h-0 space-y-3">
+            <div className="grid gap-2">
               <Label>Resident</Label>
               <Select
                 value={visitForm.residentId}
@@ -538,80 +619,147 @@ export default function HomeVisitCaseConferences() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid gap-2">
                 <Label>Visit date</Label>
                 <Input type="date" value={visitForm.visitDate} onChange={(e) => setVisitForm({ ...visitForm, visitDate: e.target.value })} />
               </div>
-              <div>
-                <Label>Social worker</Label>
-                <Input value={visitForm.socialWorker} onChange={(e) => setVisitForm({ ...visitForm, socialWorker: e.target.value })} />
-              </div>
+              <EditableSelect
+                label="Social worker"
+                allowEmpty
+                placeholder="Select social worker"
+                value={visitForm.socialWorker}
+                customValue={visitForm.socialWorkerOther}
+                options={visitSocialWorkerOptions}
+                onChange={(v) => setVisitForm({ ...visitForm, socialWorker: v })}
+                onCustomChange={(v) => setVisitForm({ ...visitForm, socialWorkerOther: v })}
+              />
             </div>
-            <div>
+            <div className="grid gap-2">
               <Label>Visit type</Label>
-              <Select value={visitForm.visitType} onValueChange={(v) => setVisitForm({ ...visitForm, visitType: v })}>
+              <Select
+                value={visitForm.visitType || '__none__'}
+                onValueChange={(v) => setVisitForm({ ...visitForm, visitType: v === '__none__' ? '' : v })}
+              >
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue placeholder="Select visit type" />
                 </SelectTrigger>
                 <SelectContent>
-                  {VISIT_TYPES.map((t) => (
-                    <SelectItem key={t} value={t}>
-                      {t}
+                  <SelectItem value="__none__" className="text-muted-foreground">
+                    Select visit type
+                  </SelectItem>
+                  {VISIT_TYPE_OPTIONS.map((o) => (
+                    <SelectItem key={o.slug} value={o.slug}>
+                      {o.label}
                     </SelectItem>
                   ))}
+                  <SelectItem value="other">Add new…</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            <div>
-              <Label>Location</Label>
-              <Input value={visitForm.location} onChange={(e) => setVisitForm({ ...visitForm, location: e.target.value })} />
-            </div>
-            <div>
-              <Label>Family members present</Label>
-              <Input value={visitForm.familyMembersPresent} onChange={(e) => setVisitForm({ ...visitForm, familyMembersPresent: e.target.value })} />
-            </div>
-            <div>
-              <Label>Purpose</Label>
-              <Input value={visitForm.purpose} onChange={(e) => setVisitForm({ ...visitForm, purpose: e.target.value })} />
-            </div>
-            <div>
+            {visitForm.visitType === 'other' && (
+              <div className="grid gap-2">
+                <Label>New visit type</Label>
+                <Input
+                  value={visitForm.visitTypeOther}
+                  onChange={(e) => setVisitForm({ ...visitForm, visitTypeOther: e.target.value })}
+                  placeholder="Describe visit type"
+                />
+              </div>
+            )}
+            <EditableSelect
+              label="Location"
+              allowEmpty
+              placeholder="Select location"
+              value={visitForm.location}
+              customValue={visitForm.locationOther}
+              options={visitLocationOptions}
+              onChange={(v) => setVisitForm({ ...visitForm, location: v })}
+              onCustomChange={(v) => setVisitForm({ ...visitForm, locationOther: v })}
+            />
+            <EditableSelect
+              label="Family members present"
+              allowEmpty
+              placeholder="Select or describe"
+              value={visitForm.familyMembersPresent}
+              customValue={visitForm.familyMembersPresentOther}
+              options={visitFamilyPresentOptions}
+              onChange={(v) => setVisitForm({ ...visitForm, familyMembersPresent: v })}
+              onCustomChange={(v) => setVisitForm({ ...visitForm, familyMembersPresentOther: v })}
+            />
+            <EditableSelect
+              label="Purpose"
+              allowEmpty
+              placeholder="Select purpose"
+              value={visitForm.purpose}
+              customValue={visitForm.purposeOther}
+              options={visitPurposeOptions}
+              onChange={(v) => setVisitForm({ ...visitForm, purpose: v })}
+              onCustomChange={(v) => setVisitForm({ ...visitForm, purposeOther: v })}
+            />
+            <div className="grid gap-2">
               <Label>Observations</Label>
               <Textarea value={visitForm.observations} onChange={(e) => setVisitForm({ ...visitForm, observations: e.target.value })} rows={4} />
             </div>
-            <div>
-              <Label>Family cooperation</Label>
+            <div className="grid gap-2">
+              <Label>Family cooperation level</Label>
               <Select
-                value={visitForm.familyCooperationLevel}
-                onValueChange={(v) => setVisitForm({ ...visitForm, familyCooperationLevel: v })}
+                value={visitForm.familyCooperationLevel || '__none__'}
+                onValueChange={(v) => setVisitForm({ ...visitForm, familyCooperationLevel: v === '__none__' ? '' : v })}
               >
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue placeholder="Select cooperation level" />
                 </SelectTrigger>
                 <SelectContent>
-                  {['Highly Cooperative', 'Cooperative', 'Neutral', 'Uncooperative'].map((x) => (
-                    <SelectItem key={x} value={x}>
-                      {x}
+                  <SelectItem value="__none__" className="text-muted-foreground">
+                    Select cooperation level
+                  </SelectItem>
+                  {COOPERATION_LEVEL_OPTIONS.map((o) => (
+                    <SelectItem key={o.slug} value={o.slug}>
+                      {o.label}
                     </SelectItem>
                   ))}
+                  <SelectItem value="other">Add new…</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            <div>
-              <Label>Outcome</Label>
-              <Select value={visitForm.visitOutcome} onValueChange={(v) => setVisitForm({ ...visitForm, visitOutcome: v })}>
+            {visitForm.familyCooperationLevel === 'other' && (
+              <div className="grid gap-2">
+                <Label>New cooperation value</Label>
+                <Input
+                  value={visitForm.cooperationOther}
+                  onChange={(e) => setVisitForm({ ...visitForm, cooperationOther: e.target.value })}
+                />
+              </div>
+            )}
+            <div className="grid gap-2">
+              <Label>Visit outcome</Label>
+              <Select
+                value={visitForm.visitOutcome || '__none__'}
+                onValueChange={(v) => setVisitForm({ ...visitForm, visitOutcome: v === '__none__' ? '' : v })}
+              >
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue placeholder="Select outcome" />
                 </SelectTrigger>
                 <SelectContent>
-                  {['Favorable', 'Needs Improvement', 'Unfavorable', 'Inconclusive'].map((x) => (
-                    <SelectItem key={x} value={x}>
-                      {x}
+                  <SelectItem value="__none__" className="text-muted-foreground">
+                    Select outcome
+                  </SelectItem>
+                  {VISIT_OUTCOME_OPTIONS.map((o) => (
+                    <SelectItem key={o.slug} value={o.slug}>
+                      {o.label}
                     </SelectItem>
                   ))}
+                  <SelectItem value="other">Add new…</SelectItem>
                 </SelectContent>
               </Select>
             </div>
+            {visitForm.visitOutcome === 'other' && (
+              <div className="grid gap-2">
+                <Label>New outcome</Label>
+                <Input value={visitForm.outcomeOther} onChange={(e) => setVisitForm({ ...visitForm, outcomeOther: e.target.value })} />
+              </div>
+            )}
             <label className="flex items-center gap-2 text-sm">
               <Checkbox checked={visitForm.safetyConcernsNoted} onCheckedChange={(c) => setVisitForm({ ...visitForm, safetyConcernsNoted: !!c })} />
               Safety concerns noted
@@ -620,9 +768,26 @@ export default function HomeVisitCaseConferences() {
               <Checkbox checked={visitForm.followUpNeeded} onCheckedChange={(c) => setVisitForm({ ...visitForm, followUpNeeded: !!c })} />
               Follow-up needed
             </label>
+          </div>
+          <div className="border-t px-6 py-4 shrink-0 flex justify-end gap-2 bg-muted/30">
+            <Button variant="outline" type="button" onClick={() => setVisitDialogOpen(false)}>
+              Cancel
+            </Button>
             <Button
+              type="button"
               onClick={() => saveVisitMutation.mutate()}
-              disabled={saveVisitMutation.isPending || !visitForm.residentId || !visitForm.visitDate || !visitForm.socialWorker}
+              disabled={
+                saveVisitMutation.isPending ||
+                !visitForm.residentId ||
+                !visitForm.visitDate ||
+                !(visitForm.socialWorker === 'other'
+                  ? visitForm.socialWorkerOther.trim()
+                  : visitForm.socialWorker.trim()) ||
+                !visitForm.visitType ||
+                (visitForm.visitType === 'other' && !visitForm.visitTypeOther.trim()) ||
+                (visitForm.familyCooperationLevel === 'other' && !visitForm.cooperationOther.trim()) ||
+                (visitForm.visitOutcome === 'other' && !visitForm.outcomeOther.trim())
+              }
             >
               {saveVisitMutation.isPending ? 'Saving...' : 'Save visitation'}
             </Button>
