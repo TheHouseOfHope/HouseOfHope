@@ -62,6 +62,18 @@ public static class DataSeeder
             var healthRecords = ReadCsv<HealthWellbeingRecord>(CsvPath(contentRootPath, "health_wellbeing_records.csv"));
             SeedWithIdentityInsert(context, "health_wellbeing_records", healthRecords);
         }
+
+        if (!context.Donations.Any() && File.Exists(CsvPath(contentRootPath, "donations.csv")))
+        {
+            var donations = ReadCsv<Donation>(CsvPath(contentRootPath, "donations.csv"));
+            SeedWithIdentityInsert(context, "donations", donations);
+        }
+
+        if (!context.IncidentReports.Any() && File.Exists(CsvPath(contentRootPath, "incident_reports.csv")))
+        {
+            var incidentReports = ReadCsv<IncidentReport>(CsvPath(contentRootPath, "incident_reports.csv"));
+            SeedWithIdentityInsert(context, "incident_reports", incidentReports);
+        }
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
