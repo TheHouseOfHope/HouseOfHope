@@ -367,6 +367,42 @@ export const deleteResidentPlan = (id: string, planId: string) =>
     method: 'DELETE',
   });
 
+  export interface SocialMediaPredictionInput {
+    postHour: number;
+    numHashtags: number;
+    mentionsCount: number;
+    captionLength: number;
+    boostBudgetPhp: number;
+    isBoostedNum: number;
+    hasCallToActionNum: number;
+    featuresResidentStoryNum: number;
+    lexDonateHits: number;
+    lexUrgentHits: number;
+    lexGratitudeHits: number;
+    lexEmotionHits: number;
+    lexSentimentNet: number;
+    priorPostsSamePlatform: number;
+    hoursSinceLastSamePlatform: number;
+    platform: string;
+    postType: string;
+    mediaType: string;
+    dayOfWeek: string;
+    callToActionType: string;
+    contentTopic: string;
+    sentimentTone: string;
+  }
+  
+  export interface SocialMediaPredictionResult {
+    estimatedDonationValuePhp: number;
+    engagementRate: number;
+    recommendations: string[];
+  }
+  
+  export const predictSocialMediaPost = (input: SocialMediaPredictionInput) =>
+    apiFetch<SocialMediaPredictionResult>('/ML/social-media/predict', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
 export const fetchSocialPosts = () => apiFetch<SocialMediaPost[]>('/social-media-posts');
 
 export const fetchImpactStats = () => apiFetch<ImpactStats>('/Analytics/impact');
