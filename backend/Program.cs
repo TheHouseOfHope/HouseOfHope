@@ -78,6 +78,13 @@ builder.Services.AddRateLimiter(options =>
     });
 });
 
+builder.Services.AddHsts(options =>
+{
+    options.MaxAge = TimeSpan.FromDays(365);
+    options.IncludeSubDomains = false;
+    options.Preload = false;
+});
+
 builder.Services.ConfigureApplicationCookie(options =>
 {
     options.Cookie.HttpOnly = true;
@@ -170,6 +177,7 @@ app.UseCors(FrontendCorsPolicy);
 app.UseSecurityHeaders();
 if (!app.Environment.IsDevelopment())
 {
+    app.UseHsts();
     app.UseHttpsRedirection();
 }
 app.UseRateLimiter();
