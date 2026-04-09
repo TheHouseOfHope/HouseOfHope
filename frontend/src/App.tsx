@@ -22,6 +22,7 @@ import DonorsContributions from "./pages/DonorsContributions";
 import ReportsAnalytics from "./pages/ReportsAnalytics";
 import SocialMediaAnalytics from "./pages/SocialMediaAnalytics";
 import HomeVisitCaseConferences from "./pages/HomeVisitCaseConferences";
+import ProcessRecording from "./pages/ProcessRecording";
 import DonorPortal from "./pages/DonorPortal";
 import NotFound from "./pages/NotFound";
 
@@ -67,6 +68,7 @@ const App = () => (
                 <Route index element={<AdminDashboard />} />
                 <Route path="caseload" element={<CaseloadInventory />} />
                 <Route path="resident/:id" element={<ResidentDetail />} />
+                <Route path="process-recording" element={<ProcessRecording />} />
                 <Route path="field-ops" element={<HomeVisitCaseConferences />} />
                 <Route path="donors" element={<DonorsContributions />} />
                 <Route path="reports" element={<ReportsAnalytics />} />

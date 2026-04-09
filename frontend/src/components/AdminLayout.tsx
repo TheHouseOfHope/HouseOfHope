@@ -15,15 +15,16 @@ import {
 } from '@/components/ui/sidebar';
 import { NavLink } from '@/components/NavLink';
 import {
-  LayoutDashboard, Users, HandCoins, BarChart3, Share2, Heart, LogOut, Home, MapPinned,
+  LayoutDashboard, Users, HandCoins, BarChart3, Share2, Heart, LogOut, Home, MapPinned, ScrollText,
 } from 'lucide-react';
 import { SiteFooter } from '@/components/SiteFooter';
 
 const adminNav = [
-  { title: 'Overview', url: '/admin', icon: LayoutDashboard },
-  { title: 'Caseload', url: '/admin/caseload', icon: Users },
-  { title: 'Visitations & conferences', url: '/admin/field-ops', icon: MapPinned },
-  { title: 'Donors', url: '/admin/donors', icon: HandCoins },
+  { title: 'Admin Dashboard', url: '/admin', icon: LayoutDashboard },
+  { title: 'Caseload Inventory', url: '/admin/caseload', icon: Users },
+  { title: 'Process Recording', url: '/admin/process-recording', icon: ScrollText },
+  { title: 'Visitations & Conferences', url: '/admin/field-ops', icon: MapPinned },
+  { title: 'Donors & Contributions', url: '/admin/donors', icon: HandCoins },
   { title: 'Reports (ML)', url: '/admin/reports', icon: BarChart3 },
   { title: 'Social (ML)', url: '/admin/social-media', icon: Share2 },
 ];
@@ -41,12 +42,12 @@ function AdminSidebarContent() {
           <SidebarGroupLabel>
             {!collapsed && (
               <div className="flex items-center gap-2 px-1">
-                <Heart className="h-4 w-4 text-primary" />
+                <Heart className="h-4 w-4 text-primary shrink-0" />
                 <span className="font-display font-bold text-sm">House of Hope</span>
               </div>
             )}
           </SidebarGroupLabel>
-          <SidebarGroupContent>
+          <SidebarGroupContent className="mt-3">
             <SidebarMenu>
               {adminNav.map(item => (
                 <SidebarMenuItem key={item.title}>

@@ -139,6 +139,13 @@
 - Saving one section must not navigate away or clear selection unless the user explicitly cancels or navigates elsewhere.
 - Nested CRUD (for example donations under a donor, sessions under a resident) must remain reachable from the same parent record context without losing the parent selection.
 
+### 5.4 Admin table pagination (default page size)
+- Paginated admin data tables use `usePagination` and `PaginationControl` from `@/components/PaginationControl`.
+- **Default initial page size is 25 rows** (`DEFAULT_PAGE_SIZE`). Do not pass a smaller second argument to `usePagination` unless there is a documented exception in this file.
+- The per-page dropdown must offer the shared option set `PAGE_SIZE_OPTIONS` (`5, 10, 15, 25, 50, 100`) and wire `onPageSizeChange` to `setPageSize` from the hook.
+- New admin list pages that add pagination must follow the same pattern so behavior stays consistent across Caseload, Donors, resident nested lists, Process recording, and future screens.
+- Primary data tables use `className="table-striped"` on `Table` (even rows use `bg-muted/40` via `index.css`) for scanability; filter controls stay **outside** that bordered table shell—filters use a plain flex row (search + selects + dates), matching Caseload / Donors / Process recording / Field ops.
+
 ## 6) Donation Entry Parity (Donor Portal vs Admin)
 - Same intent must produce equivalent persisted donation semantics.
 
@@ -192,6 +199,7 @@
 - Ensure round-trip consistency for type labels, values, campaign, and notes in list/history views.
 - The API client must treat successful responses with **no body** (for example HTTP 204 on `PUT`/`DELETE`) as success and must not parse them as JSON (avoids false error toasts after a successful save).
 - **Sortable admin tables:** On admin data tables, clicking a **column header** sorts by that column: the **first** click applies **ascending** order; clicking the **same** header again toggles **descending**. Clicking a **different** column starts again at **ascending** for that column. Headers that are action-only (for example **Actions**, icon-only toolbars) are not sort controls and stay plain text.
+- **Paginated admin tables:** Follow `5.4` (default **25** rows per page, shared `PAGE_SIZE_OPTIONS` and `PaginationControl`).
 
 ## 9) Verification Gate (Must Pass)
 - IS413 Traceability Matrix checks are satisfied for all in-scope admin pages.
@@ -210,6 +218,7 @@
 - Every edit/create experience allows access to all fields on desktop and mobile (scroll/size/responsive behavior verified).
 - Edit flows keep the active record in context while editing all related details (`5.3 Edit Context Persistence Rule`).
 - Required filtering/search behavior is implemented for Donors, Caseload, Process Recording, and Home Visitation/Case Conferences.
+- Paginated admin tables meet `5.4` (default page size 25, shared controls).
 
 ## 10) IS413 Traceability Matrix (Admin Scope)
 - **IS413 Admin Dashboard requirement**

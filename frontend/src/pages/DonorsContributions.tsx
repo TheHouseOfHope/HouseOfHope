@@ -23,7 +23,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, Search, Trash2, Pencil, X } from 'lucide-react';
+import { Plus, Search, Trash2, Pencil, X, HandCoins } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ConfirmDeleteDialog } from '@/components/ConfirmDeleteDialog';
@@ -166,7 +166,7 @@ export default function DonorsContributions() {
     });
   }, [filteredAllDonations, contribSortKey, contribSortDir]);
 
-  const { currentPage, setCurrentPage, startIndex, endIndex, pageSize, setPageSize } = usePagination(sortedDonors.length, 10);
+  const { currentPage, setCurrentPage, startIndex, endIndex, pageSize, setPageSize } = usePagination(sortedDonors.length);
   const paginated = sortedDonors.slice(startIndex, endIndex);
 
   const handleDonorSort = (key: string) => {
@@ -288,7 +288,10 @@ export default function DonorsContributions() {
   if (supportersQ.error || donationsQ.error) {
     return (
       <div className="space-y-2">
-        <h1 className="text-3xl font-display font-bold text-foreground">Donors &amp; contributions</h1>
+        <h1 className="text-3xl font-display font-bold text-foreground flex items-center gap-2">
+          <HandCoins className="h-8 w-8 text-primary shrink-0" />
+          Donors &amp; Contributions
+        </h1>
         <p className="text-destructive text-sm">Could not load data from the API.</p>
       </div>
     );
@@ -319,7 +322,10 @@ export default function DonorsContributions() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <h1 className="text-3xl font-display font-bold text-foreground">Donors &amp; contributions</h1>
+        <h1 className="text-3xl font-display font-bold text-foreground flex items-center gap-2">
+          <HandCoins className="h-8 w-8 text-primary shrink-0" />
+          Donors &amp; Contributions
+        </h1>
         <div className="flex gap-2 flex-wrap">
           <Button onClick={() => { setEditingDonor(null); resetDonorForm(); setDonorDialogOpen(true); }}>
             <Plus className="h-4 w-4 mr-2" /> Add donor
@@ -513,7 +519,7 @@ export default function DonorsContributions() {
             </div>
           </div>
           <div className="overflow-x-auto rounded-md border">
-            <Table>
+            <Table className="table-striped">
               <TableHeader>
                 <TableRow>
                   <SortableTableHead

@@ -7,6 +7,9 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 /** Common choices for “rows per page” on admin tables. */
 export const PAGE_SIZE_OPTIONS = [5, 10, 15, 25, 50, 100] as const;
 
+/** Default initial rows per page for admin paginated tables (`usePagination` / `PaginationControl`). */
+export const DEFAULT_PAGE_SIZE = 25;
+
 interface PaginationControlProps {
   totalItems: number;
   pageSize: number;
@@ -90,7 +93,7 @@ export function PaginationControl({
   );
 }
 
-export function usePagination(totalItems: number, initialPageSize = 10) {
+export function usePagination(totalItems: number, initialPageSize = DEFAULT_PAGE_SIZE) {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSizeState] = useState(initialPageSize);
 

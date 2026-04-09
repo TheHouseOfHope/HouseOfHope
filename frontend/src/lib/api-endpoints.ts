@@ -90,6 +90,22 @@ export const fetchAllVisitations = () =>
 export const fetchResidentPlans = (id: string) =>
   apiFetch<InterventionPlan[]>(`/Residents/${id}/intervention-plans`);
 
+/** All process recordings (counseling sessions), optionally scoped to one resident. */
+export const fetchAllProcessRecordings = (residentId?: string) =>
+  apiFetch<CounselingSession[]>(
+    residentId
+      ? `/Residents/process-recordings?residentId=${encodeURIComponent(residentId)}`
+      : '/Residents/process-recordings',
+  );
+
+/** All intervention plans, optionally scoped to one resident. */
+export const fetchAllInterventionPlansGlobal = (residentId?: string) =>
+  apiFetch<InterventionPlan[]>(
+    residentId
+      ? `/Residents/intervention-plans?residentId=${encodeURIComponent(residentId)}`
+      : '/Residents/intervention-plans',
+  );
+
 export const fetchCaseConferences = () =>
   apiFetch<UpcomingConference[]>('/Residents/case-conferences');
 

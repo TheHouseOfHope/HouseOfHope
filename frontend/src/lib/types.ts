@@ -41,6 +41,8 @@ export interface Resident {
 export interface CounselingSession {
   id: string;
   residentId: string;
+  /** Present on organization-wide list responses. */
+  residentInternalCode?: string;
   sessionDate: string;
   socialWorker: string;
   sessionType: 'individual' | 'group';
@@ -73,6 +75,8 @@ export interface Visitation {
 export interface InterventionPlan {
   id: string;
   residentId: string;
+  /** Present on organization-wide list responses. */
+  residentInternalCode?: string;
   planCategory: string;
   description: string;
   servicesProvided: string;

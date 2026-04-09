@@ -16,7 +16,7 @@ import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
-import { Plus, Search, Edit } from 'lucide-react';
+import { Plus, Search, Edit, Users } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { EditableSelect } from '@/components/EditableSelect';
 import { SortableTableHead } from '@/components/SortableTableHead';
@@ -113,7 +113,7 @@ export default function CaseloadInventory() {
     });
   }, [filtered, sortKey, sortDir]);
 
-  const { currentPage, setCurrentPage, startIndex, endIndex, pageSize, setPageSize } = usePagination(sortedFiltered.length, 15);
+  const { currentPage, setCurrentPage, startIndex, endIndex, pageSize, setPageSize } = usePagination(sortedFiltered.length);
   const paginated = sortedFiltered.slice(startIndex, endIndex);
 
   const handleColumnSort = (key: string) => {
@@ -200,7 +200,10 @@ export default function CaseloadInventory() {
   if (error) {
     return (
         <div className="space-y-2">
-          <h1 className="text-3xl font-display font-bold text-foreground">Caseload Inventory</h1>
+          <h1 className="text-3xl font-display font-bold text-foreground flex items-center gap-2">
+            <Users className="h-8 w-8 text-primary shrink-0" />
+            Caseload Inventory
+          </h1>
           <p className="text-destructive text-sm">Could not load residents from the API.</p>
         </div>
     );
@@ -209,7 +212,10 @@ export default function CaseloadInventory() {
   return (
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <h1 className="text-3xl font-display font-bold text-foreground">Caseload Inventory</h1>
+          <h1 className="text-3xl font-display font-bold text-foreground flex items-center gap-2">
+            <Users className="h-8 w-8 text-primary shrink-0" />
+            Caseload Inventory
+          </h1>
           <Button onClick={() => setOpenCreate(true)}>
             <Plus className="h-4 w-4 mr-2" /> Add Resident
           </Button>

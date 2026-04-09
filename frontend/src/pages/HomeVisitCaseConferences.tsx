@@ -15,7 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Search, Plus, Pencil, Trash2 } from 'lucide-react';
+import { Search, Plus, Pencil, Trash2, MapPinned } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -252,7 +252,10 @@ export default function HomeVisitCaseConferences() {
   if (visitQ.error || confQ.error) {
     return (
       <div className="space-y-2">
-        <h1 className="text-3xl font-display font-bold text-foreground">Home visitations &amp; case conferences</h1>
+        <h1 className="text-3xl font-display font-bold text-foreground flex items-center gap-2">
+          <MapPinned className="h-8 w-8 text-primary shrink-0" />
+          Home Visitations &amp; Case Conferences
+        </h1>
         <p className="text-destructive text-sm">Could not load records from the API.</p>
       </div>
     );
@@ -261,7 +264,10 @@ export default function HomeVisitCaseConferences() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <h1 className="text-3xl font-display font-bold text-foreground">Home visitations &amp; case conferences</h1>
+        <h1 className="text-3xl font-display font-bold text-foreground flex items-center gap-2">
+          <MapPinned className="h-8 w-8 text-primary shrink-0" />
+          Home Visitations &amp; Case Conferences
+        </h1>
         <Button onClick={() => openNewVisit()}>
           <Plus className="h-4 w-4 mr-2" /> Log visitation
         </Button>
@@ -330,16 +336,11 @@ export default function HomeVisitCaseConferences() {
         </TabsList>
 
         <TabsContent value="visitations" className="mt-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Home / field visits</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {visitQ.isLoading || residentQ.isLoading ? (
-                <Skeleton className="h-48 w-full" />
-              ) : (
-                <div className="overflow-x-auto">
-                  <Table>
+          <div className="bg-card rounded-xl border shadow-sm overflow-x-auto">
+            {visitQ.isLoading || residentQ.isLoading ? (
+              <Skeleton className="h-48 w-full rounded-xl" />
+            ) : (
+                <Table className="table-striped">
                     <TableHeader>
                       <TableRow>
                         <SortableTableHead
@@ -406,10 +407,8 @@ export default function HomeVisitCaseConferences() {
                       ))}
                     </TableBody>
                   </Table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+            )}
+          </div>
         </TabsContent>
 
         <TabsContent value="conferences" className="mt-4 space-y-6">
@@ -421,7 +420,7 @@ export default function HomeVisitCaseConferences() {
               {confQ.isLoading ? (
                 <Skeleton className="h-32 w-full" />
               ) : (
-                <Table>
+                <Table className="table-striped">
                   <TableHeader>
                     <TableRow>
                       <SortableTableHead
@@ -471,7 +470,7 @@ export default function HomeVisitCaseConferences() {
               {confQ.isLoading ? (
                 <Skeleton className="h-32 w-full" />
               ) : (
-                <Table>
+                <Table className="table-striped">
                   <TableHeader>
                     <TableRow>
                       <SortableTableHead

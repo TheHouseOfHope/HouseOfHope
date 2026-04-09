@@ -38,8 +38,26 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Calendar, Pencil, User, Clock, MapPin, Trash2 } from 'lucide-react';
+import { ArrowLeft, Calendar, Pencil, User, Users, Clock, MapPin, Trash2 } from 'lucide-react';
 import { ConfirmDeleteDialog } from '@/components/ConfirmDeleteDialog';
+import { toTitleCase } from '@/lib/titleCase';
+import {
+  COOPERATION_LEVEL_OPTIONS,
+  DEFAULT_PLAN_CATEGORY_SLUGS,
+  EMOTIONAL_STATE_SEEDS,
+  SESSION_DURATION_PRESETS,
+  VISIT_OUTCOME_OPTIONS,
+  VISIT_TYPE_OPTIONS,
+  labelFromCooperationSlug,
+  labelFromVisitOutcomeSlug,
+  labelFromVisitTypeSlug,
+  mergeDistinctOptions,
+  planCategoryLabel,
+  PLAN_STATUS_LABELS,
+  slugForCooperation,
+  slugForVisitOutcome,
+  slugForVisitType,
+} from '@/lib/residentFieldOptions';
 
 function matchSelectOption(value: string, options: string[]): { select: string; other: string } {
   const n = value.trim().toLowerCase();
@@ -108,10 +126,14 @@ export default function ResidentDetail() {
   const [sessionForm, setSessionForm] = useState({
     sessionDate: new Date().toISOString().slice(0, 10),
     socialWorker: '',
+    socialWorkerOther: '',
     sessionType: 'individual' as 'individual' | 'group',
+    durationPreset: '60' as string,
     durationMinutes: 60,
     emotionalStateStart: '',
+    emotionalStateStartOther: '',
     emotionalStateEnd: '',
+    emotionalStateEndOther: '',
     narrative: '',
     interventions: '',
     followUpActions: '',
@@ -121,17 +143,21 @@ export default function ResidentDetail() {
   const [visitForm, setVisitForm] = useState({
     visitDate: new Date().toISOString().slice(0, 10),
     socialWorker: '',
+    socialWorkerOther: '',
     visitType: '',
+    visitTypeOther: '',
     location: '',
+    locationOther: '',
     familyMembersPresent: '',
+    familyMembersPresentOther: '',
     purpose: '',
+    purposeOther: '',
     observations: '',
     familyCooperationLevel: '',
+    cooperationOther: '',
     safetyConcernsNoted: false,
     followUpNeeded: false,
     visitOutcome: '',
-    visitTypeOther: '',
-    cooperationOther: '',
     outcomeOther: '',
   });
   const [planForm, setPlanForm] = useState({
@@ -221,26 +247,89 @@ export default function ResidentDetail() {
   const sessions = sessionsQ.data ?? [];
   const visitations = visitsQ.data ?? [];
   const plans = plansQ.data ?? [];
-  const createSessionMutation = useMutation({
-    mutationFn: () => createResidentSession(id!, sessionForm),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['resident', id, 'sessions'] });
-      setOpenSession(false);
-      setEditingSessionId(null);
-      toast({ title: 'Session saved', description: 'Process recording was added.' });
-    },
-    onError: () => toast({ title: 'Save failed', description: 'Could not add counseling session.', variant: 'destructive' }),
-  });
-  const createVisitMutation = useMutation({
-    mutationFn: () => createResidentVisitation(id!, visitForm),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['resident', id, 'visitations'] });
-      setOpenVisit(false);
-      setEditingVisitId(null);
-      toast({ title: 'Visitation saved', description: 'Home visitation record was added.' });
-    },
-    onError: () => toast({ title: 'Save failed', description: 'Could not add visitation.', variant: 'destructive' }),
-  });
+
+  const emotionalStateOptions = useMemo(
+    () =>
+      mergeDistinctOptions(
+        sessions.flatMap((s) => [s.emotionalStateStart, s.emotionalStateEnd]),
+        [...EMOTIONAL_STATE_SEEDS],
+      ),
+    [sessions],
+  );
+  const visitLocationOptions = useMemo(() => mergeDistinctOptions(visitations.map((v) => v.location)), [visitations]);
+  const visitPurposeOptions = useMemo(() => mergeDistinctOptions(visitations.map((v) => v.purpose)), [visitations]);
+  const visitFamilyPresentOptions = useMemo(
+    () => mergeDistinctOptions(visitations.map((v) => v.familyMembersPresent)),
+    [visitations],
+  );
+  const planCategoryOptions = useMemo(
+    () => mergeDistinctOptions(plans.map((p) => p.planCategory), [...DEFAULT_PLAN_CATEGORY_SLUGS]),
+    [plans],
+  );
+
+  const buildSessionApiPayload = () => {
+    const socialWorker =
+      sessionForm.socialWorker === 'other'
+        ? sessionForm.socialWorkerOther.trim()
+        : sessionForm.socialWorker.trim();
+    const emotionalStateStart =
+      sessionForm.emotionalStateStart === 'other'
+        ? toTitleCase(sessionForm.emotionalStateStartOther)
+        : sessionForm.emotionalStateStart.trim();
+    const emotionalStateEnd =
+      sessionForm.emotionalStateEnd === 'other'
+        ? toTitleCase(sessionForm.emotionalStateEndOther)
+        : sessionForm.emotionalStateEnd.trim();
+    const durationMinutes =
+      sessionForm.durationPreset === 'other' ? sessionForm.durationMinutes : Number(sessionForm.durationPreset);
+    return {
+      sessionDate: sessionForm.sessionDate,
+      socialWorker,
+      sessionType: sessionForm.sessionType,
+      durationMinutes,
+      emotionalStateStart,
+      emotionalStateEnd,
+      narrative: sessionForm.narrative.trim(),
+      interventions: sessionForm.interventions.trim(),
+      followUpActions: sessionForm.followUpActions.trim(),
+      progressNoted: sessionForm.progressNoted,
+      concernsFlagged: sessionForm.concernsFlagged,
+    };
+  };
+
+  const buildVisitApiPayload = () => {
+    const socialWorker =
+      visitForm.socialWorker === 'other'
+        ? visitForm.socialWorkerOther.trim()
+        : visitForm.socialWorker.trim();
+    const visitType = labelFromVisitTypeSlug(visitForm.visitType, visitForm.visitTypeOther);
+    const location =
+      visitForm.location === 'other'
+        ? toTitleCase(visitForm.locationOther)
+        : visitForm.location.trim();
+    const familyMembersPresent =
+      visitForm.familyMembersPresent === 'other'
+        ? toTitleCase(visitForm.familyMembersPresentOther)
+        : visitForm.familyMembersPresent.trim();
+    const purpose =
+      visitForm.purpose === 'other' ? toTitleCase(visitForm.purposeOther) : visitForm.purpose.trim();
+    const familyCooperationLevel = labelFromCooperationSlug(visitForm.familyCooperationLevel, visitForm.cooperationOther);
+    const visitOutcome = labelFromVisitOutcomeSlug(visitForm.visitOutcome, visitForm.outcomeOther);
+    return {
+      visitDate: visitForm.visitDate,
+      socialWorker,
+      visitType,
+      location,
+      familyMembersPresent,
+      purpose,
+      observations: visitForm.observations.trim(),
+      familyCooperationLevel,
+      safetyConcernsNoted: visitForm.safetyConcernsNoted,
+      followUpNeeded: visitForm.followUpNeeded,
+      visitOutcome,
+    };
+  };
+
   const updateResidentMutation = useMutation({
     mutationFn: () => updateResident(id!, {
       caseControlNumber: residentForm.caseControlNumber,
@@ -287,9 +376,12 @@ export default function ResidentDetail() {
     onError: () => toast({ title: 'Update failed', description: 'Could not update resident.', variant: 'destructive' }),
   });
   const saveSessionMutation = useMutation({
-    mutationFn: () => (editingSessionId
-      ? updateResidentSession(id!, editingSessionId, sessionForm)
-      : createResidentSession(id!, sessionForm)),
+    mutationFn: () => {
+      const payload = buildSessionApiPayload();
+      return editingSessionId
+        ? updateResidentSession(id!, editingSessionId, payload)
+        : createResidentSession(id!, payload);
+    },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['resident', id, 'sessions'] });
       setOpenSession(false);
@@ -300,12 +392,7 @@ export default function ResidentDetail() {
   });
   const saveVisitMutation = useMutation({
     mutationFn: () => {
-      const payload = {
-        ...visitForm,
-        visitType: visitForm.visitType === 'other' ? visitForm.visitTypeOther : visitForm.visitType,
-        familyCooperationLevel: visitForm.familyCooperationLevel === 'other' ? visitForm.cooperationOther : visitForm.familyCooperationLevel,
-        visitOutcome: visitForm.visitOutcome === 'other' ? visitForm.outcomeOther : visitForm.visitOutcome,
-      };
+      const payload = buildVisitApiPayload();
       return editingVisitId
         ? updateResidentVisitation(id!, editingVisitId, payload)
         : createResidentVisitation(id!, payload);
@@ -320,9 +407,17 @@ export default function ResidentDetail() {
   });
   const savePlanMutation = useMutation({
     mutationFn: () => {
+      const planCategory =
+        planForm.planCategory === 'other'
+          ? toTitleCase(planForm.planCategoryOther)
+          : planForm.planCategory.trim();
       const payload = {
-        ...planForm,
-        planCategory: planForm.planCategory === 'other' ? planForm.planCategoryOther : planForm.planCategory,
+        planCategory,
+        description: planForm.description.trim(),
+        servicesProvided: planForm.servicesProvided.trim(),
+        targetDate: planForm.targetDate,
+        status: planForm.status,
+        caseConferenceDate: planForm.caseConferenceDate,
       };
       return editingPlanId
         ? updateResidentPlan(id!, editingPlanId, payload)
@@ -374,8 +469,8 @@ export default function ResidentDetail() {
     onError: () => toast({ title: 'Delete failed', description: 'Could not delete plan.', variant: 'destructive' }),
   });
 
-  const sessionPagination = usePagination(sessions.length, 5);
-  const visitPagination = usePagination(visitations.length, 5);
+  const sessionPagination = usePagination(sessions.length);
+  const visitPagination = usePagination(visitations.length);
 
   const loading = residentQ.isLoading;
   const notFound = !residentQ.isLoading && (residentQ.isError || !resident);
@@ -410,7 +505,10 @@ export default function ResidentDetail() {
             <CardContent className="p-6">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="space-y-1">
-                  <h1 className="text-2xl font-display font-bold text-foreground">{resident.internalCode}</h1>
+                  <h1 className="text-3xl font-display font-bold text-foreground flex items-center gap-2">
+                    <Users className="h-8 w-8 text-primary shrink-0" />
+                    {resident.internalCode}
+                  </h1>
                   <p className="text-muted-foreground">{displaySafehouseName(resident.safehouse)} · Admitted {resident.admissionDate}</p>
                 </div>
                 <div className="flex items-center gap-3">
@@ -548,7 +646,31 @@ export default function ResidentDetail() {
 
             <TabsContent value="counseling" className="mt-6 space-y-4">
               <div className="flex justify-end">
-                <Button onClick={() => setOpenSession(true)}>Add Session</Button>
+                <Button
+                  onClick={() => {
+                    setEditingSessionId(null);
+                    setSessionForm({
+                      sessionDate: new Date().toISOString().slice(0, 10),
+                      socialWorker: '',
+                      socialWorkerOther: '',
+                      sessionType: 'individual',
+                      durationPreset: '60',
+                      durationMinutes: 60,
+                      emotionalStateStart: '',
+                      emotionalStateStartOther: '',
+                      emotionalStateEnd: '',
+                      emotionalStateEndOther: '',
+                      narrative: '',
+                      interventions: '',
+                      followUpActions: '',
+                      progressNoted: false,
+                      concernsFlagged: false,
+                    });
+                    setOpenSession(true);
+                  }}
+                >
+                  Add Session
+                </Button>
               </div>
               {sessionsQ.isLoading ? <Skeleton className="h-40 w-full" /> : sessions.slice(sessionPagination.startIndex, sessionPagination.endIndex).map(s => (
                 <Card key={s.id}>
@@ -557,17 +679,27 @@ export default function ResidentDetail() {
                       <CardTitle className="text-base font-display flex items-center gap-2">
                         <Calendar className="h-4 w-4 text-primary" /> {s.sessionDate}
                       </CardTitle>
-                      <Badge variant="outline" className="capitalize">{s.sessionType}</Badge>
+                      <Badge variant="outline">{toTitleCase(s.sessionType)}</Badge>
                       <div className="flex items-center gap-1">
                         <Button variant="ghost" size="icon" onClick={() => {
                           setEditingSessionId(s.id);
+                          const sw = matchSelectOption(s.socialWorker, socialWorkerOptions);
+                          const es = matchSelectOption(s.emotionalStateStart, emotionalStateOptions);
+                          const ee = matchSelectOption(s.emotionalStateEnd, emotionalStateOptions);
+                          const inPreset = SESSION_DURATION_PRESETS.includes(
+                            s.durationMinutes as (typeof SESSION_DURATION_PRESETS)[number],
+                          );
                           setSessionForm({
                             sessionDate: s.sessionDate,
-                            socialWorker: s.socialWorker,
+                            socialWorker: sw.select === 'other' ? 'other' : sw.select,
+                            socialWorkerOther: sw.select === 'other' ? sw.other : '',
                             sessionType: s.sessionType,
+                            durationPreset: inPreset ? String(s.durationMinutes) : 'other',
                             durationMinutes: s.durationMinutes,
-                            emotionalStateStart: s.emotionalStateStart,
-                            emotionalStateEnd: s.emotionalStateEnd,
+                            emotionalStateStart: es.select === 'other' ? 'other' : es.select,
+                            emotionalStateStartOther: es.select === 'other' ? es.other : '',
+                            emotionalStateEnd: ee.select === 'other' ? 'other' : ee.select,
+                            emotionalStateEndOther: ee.select === 'other' ? ee.other : '',
                             narrative: s.narrative,
                             interventions: s.interventions,
                             followUpActions: s.followUpActions,
@@ -618,7 +750,34 @@ export default function ResidentDetail() {
 
             <TabsContent value="visitations" className="mt-6 space-y-4">
               <div className="flex justify-end">
-                <Button onClick={() => setOpenVisit(true)}>Log Visitation</Button>
+                <Button
+                  onClick={() => {
+                    setEditingVisitId(null);
+                    setVisitForm({
+                      visitDate: new Date().toISOString().slice(0, 10),
+                      socialWorker: '',
+                      socialWorkerOther: '',
+                      visitType: '',
+                      visitTypeOther: '',
+                      location: '',
+                      locationOther: '',
+                      familyMembersPresent: '',
+                      familyMembersPresentOther: '',
+                      purpose: '',
+                      purposeOther: '',
+                      observations: '',
+                      familyCooperationLevel: '',
+                      cooperationOther: '',
+                      safetyConcernsNoted: false,
+                      followUpNeeded: false,
+                      visitOutcome: '',
+                      outcomeOther: '',
+                    });
+                    setOpenVisit(true);
+                  }}
+                >
+                  Log Visitation
+                </Button>
               </div>
               {visitsQ.isLoading ? <Skeleton className="h-40 w-full" /> : visitations.slice(visitPagination.startIndex, visitPagination.endIndex).map(v => (
                 <Card key={v.id}>
@@ -629,21 +788,32 @@ export default function ResidentDetail() {
                     <div className="flex items-center gap-1">
                       <Button variant="ghost" size="icon" onClick={() => {
                         setEditingVisitId(v.id);
+                        const sw = matchSelectOption(v.socialWorker, socialWorkerOptions);
+                        const loc = matchSelectOption(v.location, visitLocationOptions);
+                        const fam = matchSelectOption(v.familyMembersPresent, visitFamilyPresentOptions);
+                        const pur = matchSelectOption(v.purpose, visitPurposeOptions);
+                        const vt = slugForVisitType(v.visitType);
+                        const coop = slugForCooperation(v.familyCooperationLevel || '');
+                        const out = slugForVisitOutcome(v.visitOutcome || '');
                         setVisitForm({
                           visitDate: v.visitDate,
-                          socialWorker: v.socialWorker,
-                          visitType: ['initial assessment', 'routine follow-up', 'reintegration assessment', 'post-placement monitoring', 'emergency'].includes(v.visitType.toLowerCase()) ? v.visitType.toLowerCase() : 'other',
-                          location: v.location,
-                          familyMembersPresent: v.familyMembersPresent,
-                          purpose: v.purpose,
+                          socialWorker: sw.select === 'other' ? 'other' : sw.select,
+                          socialWorkerOther: sw.select === 'other' ? sw.other : '',
+                          visitType: vt,
+                          visitTypeOther: vt === 'other' ? v.visitType : '',
+                          location: loc.select === 'other' ? 'other' : loc.select,
+                          locationOther: loc.select === 'other' ? loc.other : '',
+                          familyMembersPresent: fam.select === 'other' ? 'other' : fam.select,
+                          familyMembersPresentOther: fam.select === 'other' ? fam.other : '',
+                          purpose: pur.select === 'other' ? 'other' : pur.select,
+                          purposeOther: pur.select === 'other' ? pur.other : '',
                           observations: v.observations,
-                          familyCooperationLevel: ['high', 'moderate', 'low', 'other'].includes((v.familyCooperationLevel || '').toLowerCase()) ? v.familyCooperationLevel.toLowerCase() : 'other',
+                          familyCooperationLevel: coop,
+                          cooperationOther: coop === 'other' ? (v.familyCooperationLevel || '') : '',
                           safetyConcernsNoted: v.safetyConcernsNoted,
                           followUpNeeded: v.followUpNeeded,
-                          visitOutcome: ['completed', 'follow-up required', 'escalated', 'other'].includes((v.visitOutcome || '').toLowerCase()) ? v.visitOutcome.toLowerCase() : 'other',
-                          visitTypeOther: ['initial assessment', 'routine follow-up', 'reintegration assessment', 'post-placement monitoring', 'emergency'].includes(v.visitType.toLowerCase()) ? '' : v.visitType,
-                          cooperationOther: ['high', 'moderate', 'low', 'other'].includes((v.familyCooperationLevel || '').toLowerCase()) ? '' : v.familyCooperationLevel,
-                          outcomeOther: ['completed', 'follow-up required', 'escalated', 'other'].includes((v.visitOutcome || '').toLowerCase()) ? '' : v.visitOutcome,
+                          visitOutcome: out,
+                          outcomeOther: out === 'other' ? (v.visitOutcome || '') : '',
                         });
                         setOpenVisit(true);
                       }}><Pencil className="h-4 w-4" /></Button>
@@ -678,16 +848,51 @@ export default function ResidentDetail() {
 
             <TabsContent value="interventions" className="mt-6 space-y-4">
               <div className="flex justify-end">
-                <Button onClick={() => { setEditingPlanId(null); setPlanForm({ planCategory: '', planCategoryOther: '', description: '', servicesProvided: '', targetDate: '', status: 'pending', caseConferenceDate: '' }); setOpenPlan(true); }}>Add Plan</Button>
+                <Button
+                  onClick={() => {
+                    setEditingPlanId(null);
+                    setPlanForm({
+                      planCategory: '',
+                      planCategoryOther: '',
+                      description: '',
+                      servicesProvided: '',
+                      targetDate: '',
+                      status: 'pending',
+                      caseConferenceDate: '',
+                    });
+                    setOpenPlan(true);
+                  }}
+                >
+                  Add Plan
+                </Button>
               </div>
               {plansQ.isLoading ? <Skeleton className="h-40 w-full" /> : plans.map(p => (
                 <Card key={p.id}>
                   <CardHeader className="pb-2">
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <CardTitle className="text-base font-display">{p.planCategory}</CardTitle>
+                      <CardTitle className="text-base font-display">{planCategoryLabel(p.planCategory)}</CardTitle>
                       <div className="flex items-center gap-2">
                         <span className={`text-xs px-2 py-1 rounded-full capitalize ${planStatusColors[p.status] ?? ''}`}>{p.status}</span>
-                        <Button variant="ghost" size="icon" onClick={() => { setEditingPlanId(p.id); setPlanForm({ planCategory: p.planCategory, planCategoryOther: '', description: p.description, servicesProvided: p.servicesProvided, targetDate: p.targetDate, status: p.status, caseConferenceDate: p.caseConferenceDate }); setOpenPlan(true); }}><Pencil className="h-4 w-4" /></Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
+                            setEditingPlanId(p.id);
+                            const pc = matchSelectOption(p.planCategory, planCategoryOptions);
+                            setPlanForm({
+                              planCategory: pc.select === 'other' ? 'other' : pc.select,
+                              planCategoryOther: pc.select === 'other' ? pc.other : '',
+                              description: p.description,
+                              servicesProvided: p.servicesProvided,
+                              targetDate: p.targetDate,
+                              status: p.status,
+                              caseConferenceDate: p.caseConferenceDate,
+                            });
+                            setOpenPlan(true);
+                          }}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
                         <Button variant="ghost" size="icon" onClick={() => setDeletePlanId(p.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                       </div>
                     </div>
@@ -705,32 +910,138 @@ export default function ResidentDetail() {
       )}
 
       <Dialog open={openSession} onOpenChange={setOpenSession}>
-        <DialogContent className="max-w-xl">
-          <DialogHeader><DialogTitle className="font-display">{editingSessionId ? 'Edit Counseling Session' : 'Add Counseling Session'}</DialogTitle></DialogHeader>
-          <div className="grid gap-3">
-            <div className="grid grid-cols-2 gap-3">
-              <div><Label>Session Date</Label><Input type="date" value={sessionForm.sessionDate} onChange={(e) => setSessionForm({ ...sessionForm, sessionDate: e.target.value })} /></div>
-              <div><Label>Social Worker</Label><Input value={sessionForm.socialWorker} onChange={(e) => setSessionForm({ ...sessionForm, socialWorker: e.target.value })} /></div>
+        <DialogContent className="sm:max-w-xl w-[min(100vw-2rem,36rem)] max-h-[90vh] flex flex-col gap-0 p-0 overflow-hidden">
+          <DialogHeader className="px-6 pt-6 pb-2 shrink-0">
+            <DialogTitle className="font-display">
+              {editingSessionId ? 'Edit Counseling Session' : 'Add Counseling Session'}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="overflow-y-auto px-6 pb-4 flex-1 min-h-0 space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid gap-2">
+                <Label>Session Date</Label>
+                <Input type="date" value={sessionForm.sessionDate} onChange={(e) => setSessionForm({ ...sessionForm, sessionDate: e.target.value })} />
+              </div>
+              <EditableSelect
+                label="Social Worker"
+                allowEmpty
+                placeholder="Select social worker"
+                value={sessionForm.socialWorker}
+                customValue={sessionForm.socialWorkerOther}
+                options={socialWorkerOptions}
+                onChange={(v) => setSessionForm({ ...sessionForm, socialWorker: v })}
+                onCustomChange={(v) => setSessionForm({ ...sessionForm, socialWorkerOther: v })}
+              />
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div><Label>Type</Label>
-                <Select value={sessionForm.sessionType} onValueChange={(v: 'individual' | 'group') => setSessionForm({ ...sessionForm, sessionType: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent><SelectItem value="individual">individual</SelectItem><SelectItem value="group">group</SelectItem></SelectContent>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid gap-2">
+                <Label>Type</Label>
+                <Select
+                  value={sessionForm.sessionType}
+                  onValueChange={(v: 'individual' | 'group') => setSessionForm({ ...sessionForm, sessionType: v })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="individual">Individual</SelectItem>
+                    <SelectItem value="group">Group</SelectItem>
+                  </SelectContent>
                 </Select>
               </div>
-              <div><Label>Duration (min)</Label><Input type="number" value={sessionForm.durationMinutes} onChange={(e) => setSessionForm({ ...sessionForm, durationMinutes: Number(e.target.value) })} /></div>
+              <div className="grid gap-2">
+                <Label>Duration</Label>
+                <Select
+                  value={sessionForm.durationPreset}
+                  onValueChange={(v) =>
+                    setSessionForm({
+                      ...sessionForm,
+                      durationPreset: v,
+                      durationMinutes: v === 'other' ? sessionForm.durationMinutes : Number(v),
+                    })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SESSION_DURATION_PRESETS.map((m) => (
+                      <SelectItem key={m} value={String(m)}>
+                        {m} Minutes
+                      </SelectItem>
+                    ))}
+                    <SelectItem value="other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+                {sessionForm.durationPreset === 'other' && (
+                  <Input
+                    type="number"
+                    min={1}
+                    className="mt-1"
+                    value={sessionForm.durationMinutes || ''}
+                    onChange={(e) => setSessionForm({ ...sessionForm, durationMinutes: Number(e.target.value) })}
+                  />
+                )}
+              </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div><Label>Emotional State (Start)</Label><Input value={sessionForm.emotionalStateStart} onChange={(e) => setSessionForm({ ...sessionForm, emotionalStateStart: e.target.value })} /></div>
-              <div><Label>Emotional State (End)</Label><Input value={sessionForm.emotionalStateEnd} onChange={(e) => setSessionForm({ ...sessionForm, emotionalStateEnd: e.target.value })} /></div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <EditableSelect
+                label="Emotional State (Start)"
+                allowEmpty
+                placeholder="Select observed state"
+                value={sessionForm.emotionalStateStart}
+                customValue={sessionForm.emotionalStateStartOther}
+                options={emotionalStateOptions}
+                onChange={(v) => setSessionForm({ ...sessionForm, emotionalStateStart: v })}
+                onCustomChange={(v) => setSessionForm({ ...sessionForm, emotionalStateStartOther: v })}
+              />
+              <EditableSelect
+                label="Emotional State (End)"
+                allowEmpty
+                placeholder="Select observed state"
+                value={sessionForm.emotionalStateEnd}
+                customValue={sessionForm.emotionalStateEndOther}
+                options={emotionalStateOptions}
+                onChange={(v) => setSessionForm({ ...sessionForm, emotionalStateEnd: v })}
+                onCustomChange={(v) => setSessionForm({ ...sessionForm, emotionalStateEndOther: v })}
+              />
             </div>
-            <div><Label>Narrative</Label><Textarea value={sessionForm.narrative} onChange={(e) => setSessionForm({ ...sessionForm, narrative: e.target.value })} /></div>
-            <div><Label>Interventions</Label><Textarea value={sessionForm.interventions} onChange={(e) => setSessionForm({ ...sessionForm, interventions: e.target.value })} /></div>
-            <div><Label>Follow-up Actions</Label><Textarea value={sessionForm.followUpActions} onChange={(e) => setSessionForm({ ...sessionForm, followUpActions: e.target.value })} /></div>
-            <label className="text-sm"><input type="checkbox" checked={sessionForm.progressNoted} onChange={(e) => setSessionForm({ ...sessionForm, progressNoted: e.target.checked })} /> Progress noted</label>
-            <label className="text-sm"><input type="checkbox" checked={sessionForm.concernsFlagged} onChange={(e) => setSessionForm({ ...sessionForm, concernsFlagged: e.target.checked })} /> Concerns flagged</label>
-            <Button onClick={() => saveSessionMutation.mutate()} disabled={saveSessionMutation.isPending || !sessionForm.sessionDate || !sessionForm.socialWorker}>
+            <div className="grid gap-2">
+              <Label>Narrative</Label>
+              <Textarea rows={4} value={sessionForm.narrative} onChange={(e) => setSessionForm({ ...sessionForm, narrative: e.target.value })} />
+            </div>
+            <div className="grid gap-2">
+              <Label>Interventions</Label>
+              <Textarea rows={3} value={sessionForm.interventions} onChange={(e) => setSessionForm({ ...sessionForm, interventions: e.target.value })} />
+            </div>
+            <div className="grid gap-2">
+              <Label>Follow-Up Actions</Label>
+              <Textarea rows={3} value={sessionForm.followUpActions} onChange={(e) => setSessionForm({ ...sessionForm, followUpActions: e.target.value })} />
+            </div>
+            <label className="text-sm flex items-center gap-2">
+              <input type="checkbox" checked={sessionForm.progressNoted} onChange={(e) => setSessionForm({ ...sessionForm, progressNoted: e.target.checked })} />
+              Progress Noted
+            </label>
+            <label className="text-sm flex items-center gap-2">
+              <input type="checkbox" checked={sessionForm.concernsFlagged} onChange={(e) => setSessionForm({ ...sessionForm, concernsFlagged: e.target.checked })} />
+              Concerns Flagged
+            </label>
+          </div>
+          <div className="border-t px-6 py-4 shrink-0 flex justify-end gap-2 bg-muted/30">
+            <Button variant="outline" type="button" onClick={() => setOpenSession(false)}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={() => saveSessionMutation.mutate()}
+              disabled={
+                saveSessionMutation.isPending ||
+                !sessionForm.sessionDate ||
+                !(sessionForm.socialWorker === 'other'
+                  ? sessionForm.socialWorkerOther.trim()
+                  : sessionForm.socialWorker.trim())
+              }
+            >
               {saveSessionMutation.isPending ? 'Saving...' : 'Save Session'}
             </Button>
           </div>
@@ -738,58 +1049,182 @@ export default function ResidentDetail() {
       </Dialog>
 
       <Dialog open={openVisit} onOpenChange={setOpenVisit}>
-        <DialogContent className="max-w-xl">
-          <DialogHeader><DialogTitle className="font-display">{editingVisitId ? 'Edit Home Visitation' : 'Log Home Visitation'}</DialogTitle></DialogHeader>
-          <div className="grid gap-3">
-            <div className="grid grid-cols-2 gap-3">
-              <div><Label>Visit Date</Label><Input type="date" value={visitForm.visitDate} onChange={(e) => setVisitForm({ ...visitForm, visitDate: e.target.value })} /></div>
-              <div><Label>Social Worker</Label><Input value={visitForm.socialWorker} onChange={(e) => setVisitForm({ ...visitForm, socialWorker: e.target.value })} /></div>
+        <DialogContent className="sm:max-w-xl w-[min(100vw-2rem,36rem)] max-h-[90vh] flex flex-col gap-0 p-0 overflow-hidden">
+          <DialogHeader className="px-6 pt-6 pb-2 shrink-0">
+            <DialogTitle className="font-display">
+              {editingVisitId ? 'Edit Home Visitation' : 'Log Home Visitation'}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="overflow-y-auto px-6 pb-4 flex-1 min-h-0 space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid gap-2">
+                <Label>Visit Date</Label>
+                <Input type="date" value={visitForm.visitDate} onChange={(e) => setVisitForm({ ...visitForm, visitDate: e.target.value })} />
+              </div>
+              <EditableSelect
+                label="Social Worker"
+                allowEmpty
+                placeholder="Select social worker"
+                value={visitForm.socialWorker}
+                customValue={visitForm.socialWorkerOther}
+                options={socialWorkerOptions}
+                onChange={(v) => setVisitForm({ ...visitForm, socialWorker: v })}
+                onCustomChange={(v) => setVisitForm({ ...visitForm, socialWorkerOther: v })}
+              />
             </div>
-            <div><Label>Visit Type</Label>
-              <Select value={visitForm.visitType} onValueChange={(v) => setVisitForm({ ...visitForm, visitType: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+            <div className="grid gap-2">
+              <Label>Visit Type</Label>
+              <Select
+                value={visitForm.visitType || '__none__'}
+                onValueChange={(v) => setVisitForm({ ...visitForm, visitType: v === '__none__' ? '' : v })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select visit type" />
+                </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="initial assessment">initial assessment</SelectItem>
-                  <SelectItem value="routine follow-up">routine follow-up</SelectItem>
-                  <SelectItem value="reintegration assessment">reintegration assessment</SelectItem>
-                  <SelectItem value="post-placement monitoring">post-placement monitoring</SelectItem>
-                  <SelectItem value="emergency">emergency</SelectItem>
-                  <SelectItem value="other">other</SelectItem>
+                  <SelectItem value="__none__" className="text-muted-foreground">
+                    Select visit type
+                  </SelectItem>
+                  {VISIT_TYPE_OPTIONS.map((o) => (
+                    <SelectItem key={o.slug} value={o.slug}>
+                      {o.label}
+                    </SelectItem>
+                  ))}
+                  <SelectItem value="other">Add New…</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            {visitForm.visitType === 'other' && <div><Label>New Visit Type</Label><Input value={visitForm.visitTypeOther} onChange={(e) => setVisitForm({ ...visitForm, visitTypeOther: e.target.value })} /></div>}
-            <div><Label>Location</Label><Input value={visitForm.location} onChange={(e) => setVisitForm({ ...visitForm, location: e.target.value })} /></div>
-            <div><Label>Family Members Present</Label><Input value={visitForm.familyMembersPresent} onChange={(e) => setVisitForm({ ...visitForm, familyMembersPresent: e.target.value })} /></div>
-            <div><Label>Purpose</Label><Input value={visitForm.purpose} onChange={(e) => setVisitForm({ ...visitForm, purpose: e.target.value })} /></div>
-            <div><Label>Observations</Label><Textarea value={visitForm.observations} onChange={(e) => setVisitForm({ ...visitForm, observations: e.target.value })} /></div>
-            <div><Label>Family Cooperation Level</Label>
-              <Select value={visitForm.familyCooperationLevel} onValueChange={(v) => setVisitForm({ ...visitForm, familyCooperationLevel: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+            {visitForm.visitType === 'other' && (
+              <div className="grid gap-2">
+                <Label>New Visit Type</Label>
+                <Input
+                  value={visitForm.visitTypeOther}
+                  onChange={(e) => setVisitForm({ ...visitForm, visitTypeOther: e.target.value })}
+                  placeholder="Describe visit type"
+                />
+              </div>
+            )}
+            <EditableSelect
+              label="Location"
+              allowEmpty
+              placeholder="Select location"
+              value={visitForm.location}
+              customValue={visitForm.locationOther}
+              options={visitLocationOptions}
+              onChange={(v) => setVisitForm({ ...visitForm, location: v })}
+              onCustomChange={(v) => setVisitForm({ ...visitForm, locationOther: v })}
+            />
+            <EditableSelect
+              label="Family Members Present"
+              allowEmpty
+              placeholder="Select or describe"
+              value={visitForm.familyMembersPresent}
+              customValue={visitForm.familyMembersPresentOther}
+              options={visitFamilyPresentOptions}
+              onChange={(v) => setVisitForm({ ...visitForm, familyMembersPresent: v })}
+              onCustomChange={(v) => setVisitForm({ ...visitForm, familyMembersPresentOther: v })}
+            />
+            <EditableSelect
+              label="Purpose"
+              allowEmpty
+              placeholder="Select purpose"
+              value={visitForm.purpose}
+              customValue={visitForm.purposeOther}
+              options={visitPurposeOptions}
+              onChange={(v) => setVisitForm({ ...visitForm, purpose: v })}
+              onCustomChange={(v) => setVisitForm({ ...visitForm, purposeOther: v })}
+            />
+            <div className="grid gap-2">
+              <Label>Observations</Label>
+              <Textarea rows={4} value={visitForm.observations} onChange={(e) => setVisitForm({ ...visitForm, observations: e.target.value })} />
+            </div>
+            <div className="grid gap-2">
+              <Label>Family Cooperation Level</Label>
+              <Select
+                value={visitForm.familyCooperationLevel || '__none__'}
+                onValueChange={(v) => setVisitForm({ ...visitForm, familyCooperationLevel: v === '__none__' ? '' : v })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select cooperation level" />
+                </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="high">high</SelectItem>
-                  <SelectItem value="moderate">moderate</SelectItem>
-                  <SelectItem value="low">low</SelectItem>
-                  <SelectItem value="other">other</SelectItem>
+                  <SelectItem value="__none__" className="text-muted-foreground">
+                    Select cooperation level
+                  </SelectItem>
+                  {COOPERATION_LEVEL_OPTIONS.map((o) => (
+                    <SelectItem key={o.slug} value={o.slug}>
+                      {o.label}
+                    </SelectItem>
+                  ))}
+                  <SelectItem value="other">Add New…</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            {visitForm.familyCooperationLevel === 'other' && <div><Label>New Cooperation Value</Label><Input value={visitForm.cooperationOther} onChange={(e) => setVisitForm({ ...visitForm, cooperationOther: e.target.value })} /></div>}
-            <div><Label>Visit Outcome</Label>
-              <Select value={visitForm.visitOutcome} onValueChange={(v) => setVisitForm({ ...visitForm, visitOutcome: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+            {visitForm.familyCooperationLevel === 'other' && (
+              <div className="grid gap-2">
+                <Label>New Cooperation Value</Label>
+                <Input
+                  value={visitForm.cooperationOther}
+                  onChange={(e) => setVisitForm({ ...visitForm, cooperationOther: e.target.value })}
+                />
+              </div>
+            )}
+            <div className="grid gap-2">
+              <Label>Visit Outcome</Label>
+              <Select
+                value={visitForm.visitOutcome || '__none__'}
+                onValueChange={(v) => setVisitForm({ ...visitForm, visitOutcome: v === '__none__' ? '' : v })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select outcome" />
+                </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="completed">completed</SelectItem>
-                  <SelectItem value="follow-up required">follow-up required</SelectItem>
-                  <SelectItem value="escalated">escalated</SelectItem>
-                  <SelectItem value="other">other</SelectItem>
+                  <SelectItem value="__none__" className="text-muted-foreground">
+                    Select outcome
+                  </SelectItem>
+                  {VISIT_OUTCOME_OPTIONS.map((o) => (
+                    <SelectItem key={o.slug} value={o.slug}>
+                      {o.label}
+                    </SelectItem>
+                  ))}
+                  <SelectItem value="other">Add New…</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            {visitForm.visitOutcome === 'other' && <div><Label>New Outcome</Label><Input value={visitForm.outcomeOther} onChange={(e) => setVisitForm({ ...visitForm, outcomeOther: e.target.value })} /></div>}
-            <label className="text-sm"><input type="checkbox" checked={visitForm.safetyConcernsNoted} onChange={(e) => setVisitForm({ ...visitForm, safetyConcernsNoted: e.target.checked })} /> Safety concerns noted</label>
-            <label className="text-sm"><input type="checkbox" checked={visitForm.followUpNeeded} onChange={(e) => setVisitForm({ ...visitForm, followUpNeeded: e.target.checked })} /> Follow-up needed</label>
-            <Button onClick={() => saveVisitMutation.mutate()} disabled={saveVisitMutation.isPending || !visitForm.visitDate || !visitForm.socialWorker || !visitForm.visitType}>
+            {visitForm.visitOutcome === 'other' && (
+              <div className="grid gap-2">
+                <Label>New Outcome</Label>
+                <Input value={visitForm.outcomeOther} onChange={(e) => setVisitForm({ ...visitForm, outcomeOther: e.target.value })} />
+              </div>
+            )}
+            <label className="text-sm flex items-center gap-2">
+              <input type="checkbox" checked={visitForm.safetyConcernsNoted} onChange={(e) => setVisitForm({ ...visitForm, safetyConcernsNoted: e.target.checked })} />
+              Safety Concerns Noted
+            </label>
+            <label className="text-sm flex items-center gap-2">
+              <input type="checkbox" checked={visitForm.followUpNeeded} onChange={(e) => setVisitForm({ ...visitForm, followUpNeeded: e.target.checked })} />
+              Follow-Up Needed
+            </label>
+          </div>
+          <div className="border-t px-6 py-4 shrink-0 flex justify-end gap-2 bg-muted/30">
+            <Button variant="outline" type="button" onClick={() => setOpenVisit(false)}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={() => saveVisitMutation.mutate()}
+              disabled={
+                saveVisitMutation.isPending ||
+                !visitForm.visitDate ||
+                !(visitForm.socialWorker === 'other'
+                  ? visitForm.socialWorkerOther.trim()
+                  : visitForm.socialWorker.trim()) ||
+                !visitForm.visitType ||
+                (visitForm.visitType === 'other' && !visitForm.visitTypeOther.trim()) ||
+                (visitForm.familyCooperationLevel === 'other' && !visitForm.cooperationOther.trim()) ||
+                (visitForm.visitOutcome === 'other' && !visitForm.outcomeOther.trim())
+              }
+            >
               {saveVisitMutation.isPending ? 'Saving...' : 'Save Visitation'}
             </Button>
           </div>
@@ -818,8 +1253,33 @@ export default function ResidentDetail() {
                 onCustomChange={(v) => setResidentForm({ ...residentForm, safehouseName: v })}
               />
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div><Label>Status</Label><Select value={residentForm.caseStatus} onValueChange={(v) => setResidentForm({ ...residentForm, caseStatus: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="active">active</SelectItem><SelectItem value="closed">closed</SelectItem><SelectItem value="transferred">transferred</SelectItem></SelectContent></Select></div>
-                <div><Label>Risk</Label><Select value={residentForm.riskLevel} onValueChange={(v) => setResidentForm({ ...residentForm, riskLevel: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="low">low</SelectItem><SelectItem value="medium">medium</SelectItem><SelectItem value="high">high</SelectItem><SelectItem value="critical">critical</SelectItem></SelectContent></Select></div>
+                <div className="grid gap-2">
+                  <Label>Status</Label>
+                  <Select value={residentForm.caseStatus} onValueChange={(v) => setResidentForm({ ...residentForm, caseStatus: v })}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="closed">Closed</SelectItem>
+                      <SelectItem value="transferred">Transferred</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2">
+                  <Label>Risk</Label>
+                  <Select value={residentForm.riskLevel} onValueChange={(v) => setResidentForm({ ...residentForm, riskLevel: v })}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="low">Low</SelectItem>
+                      <SelectItem value="medium">Medium</SelectItem>
+                      <SelectItem value="high">High</SelectItem>
+                      <SelectItem value="critical">Critical</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               <EditableSelect
                 label="Case category"
@@ -949,19 +1409,74 @@ export default function ResidentDetail() {
       </Dialog>
 
       <Dialog open={openPlan} onOpenChange={setOpenPlan}>
-        <DialogContent className="max-w-xl">
-          <DialogHeader><DialogTitle className="font-display">{editingPlanId ? 'Edit Intervention Plan' : 'Add Intervention Plan'}</DialogTitle></DialogHeader>
-          <div className="grid gap-3">
-            <div><Label>Plan Category</Label><Select value={planForm.planCategory} onValueChange={(v) => setPlanForm({ ...planForm, planCategory: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="caring">caring</SelectItem><SelectItem value="healing">healing</SelectItem><SelectItem value="teaching">teaching</SelectItem><SelectItem value="other">other</SelectItem></SelectContent></Select></div>
-            {planForm.planCategory === 'other' && <div><Label>New Category</Label><Input value={planForm.planCategoryOther} onChange={(e) => setPlanForm({ ...planForm, planCategoryOther: e.target.value })} /></div>}
-            <div><Label>Description</Label><Textarea value={planForm.description} onChange={(e) => setPlanForm({ ...planForm, description: e.target.value })} /></div>
-            <div><Label>Services Provided</Label><Textarea value={planForm.servicesProvided} onChange={(e) => setPlanForm({ ...planForm, servicesProvided: e.target.value })} /></div>
-            <div className="grid grid-cols-2 gap-3">
-              <div><Label>Target Date</Label><Input type="date" value={planForm.targetDate} onChange={(e) => setPlanForm({ ...planForm, targetDate: e.target.value })} /></div>
-              <div><Label>Case Conference Date</Label><Input type="date" value={planForm.caseConferenceDate} onChange={(e) => setPlanForm({ ...planForm, caseConferenceDate: e.target.value })} /></div>
+        <DialogContent className="sm:max-w-xl w-[min(100vw-2rem,36rem)] max-h-[90vh] flex flex-col gap-0 p-0 overflow-hidden">
+          <DialogHeader className="px-6 pt-6 pb-2 shrink-0">
+            <DialogTitle className="font-display">
+              {editingPlanId ? 'Edit Intervention Plan' : 'Add Intervention Plan'}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="overflow-y-auto px-6 pb-4 flex-1 min-h-0 space-y-3">
+            <EditableSelect
+              label="Plan Category"
+              allowEmpty
+              placeholder="Select plan category"
+              value={planForm.planCategory}
+              customValue={planForm.planCategoryOther}
+              options={planCategoryOptions}
+              getOptionLabel={(o) => planCategoryLabel(o)}
+              onChange={(v) => setPlanForm({ ...planForm, planCategory: v })}
+              onCustomChange={(v) => setPlanForm({ ...planForm, planCategoryOther: v })}
+            />
+            <div className="grid gap-2">
+              <Label>Description</Label>
+              <Textarea rows={4} value={planForm.description} onChange={(e) => setPlanForm({ ...planForm, description: e.target.value })} />
             </div>
-            <div><Label>Status</Label><Select value={planForm.status} onValueChange={(v: 'pending' | 'in-progress' | 'completed' | 'on-hold') => setPlanForm({ ...planForm, status: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="pending">pending</SelectItem><SelectItem value="in-progress">in-progress</SelectItem><SelectItem value="completed">completed</SelectItem><SelectItem value="on-hold">on-hold</SelectItem></SelectContent></Select></div>
-            <Button onClick={() => savePlanMutation.mutate()} disabled={savePlanMutation.isPending || !planForm.planCategory || (planForm.planCategory === 'other' && !planForm.planCategoryOther)}>
+            <div className="grid gap-2">
+              <Label>Services Provided</Label>
+              <Textarea rows={3} value={planForm.servicesProvided} onChange={(e) => setPlanForm({ ...planForm, servicesProvided: e.target.value })} />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid gap-2">
+                <Label>Target Date</Label>
+                <Input type="date" value={planForm.targetDate} onChange={(e) => setPlanForm({ ...planForm, targetDate: e.target.value })} />
+              </div>
+              <div className="grid gap-2">
+                <Label>Case Conference Date</Label>
+                <Input type="date" value={planForm.caseConferenceDate} onChange={(e) => setPlanForm({ ...planForm, caseConferenceDate: e.target.value })} />
+              </div>
+            </div>
+            <div className="grid gap-2">
+              <Label>Status</Label>
+              <Select
+                value={planForm.status}
+                onValueChange={(v: 'pending' | 'in-progress' | 'completed' | 'on-hold') => setPlanForm({ ...planForm, status: v })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(PLAN_STATUS_LABELS) as (keyof typeof PLAN_STATUS_LABELS)[]).map((key) => (
+                    <SelectItem key={key} value={key}>
+                      {PLAN_STATUS_LABELS[key]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="border-t px-6 py-4 shrink-0 flex justify-end gap-2 bg-muted/30">
+            <Button variant="outline" type="button" onClick={() => setOpenPlan(false)}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={() => savePlanMutation.mutate()}
+              disabled={
+                savePlanMutation.isPending ||
+                !planForm.planCategory ||
+                (planForm.planCategory === 'other' && !planForm.planCategoryOther.trim())
+              }
+            >
               {savePlanMutation.isPending ? 'Saving...' : 'Save Plan'}
             </Button>
           </div>

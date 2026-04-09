@@ -33,6 +33,8 @@ public class CounselingSessionDto
 {
     public string Id { get; set; } = "";
     public string ResidentId { get; set; } = "";
+    /// <summary>Populated on aggregate list endpoints (e.g. all process recordings).</summary>
+    public string ResidentInternalCode { get; set; } = "";
     public string SessionDate { get; set; } = "";
     public string SocialWorker { get; set; } = "";
     public string SessionType { get; set; } = "";
@@ -67,6 +69,8 @@ public class InterventionPlanDto
 {
     public string Id { get; set; } = "";
     public string ResidentId { get; set; } = "";
+    /// <summary>Populated on aggregate list endpoints.</summary>
+    public string ResidentInternalCode { get; set; } = "";
     public string PlanCategory { get; set; } = "";
     public string Description { get; set; } = "";
     public string ServicesProvided { get; set; } = "";

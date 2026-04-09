@@ -190,6 +190,73 @@ public class ResidentsController : ControllerBase
         }).ToList();
     }
 
+    /// <summary>All process recordings (counseling sessions) across residents, newest first.</summary>
+    [HttpGet("process-recordings")]
+    public async Task<ActionResult<List<CounselingSessionDto>>> GetAllProcessRecordings(
+        [FromQuery] int? residentId,
+        CancellationToken ct)
+    {
+        var query =
+            from p in _db.ProcessRecordings.AsNoTracking()
+            join r in _db.Residents.AsNoTracking() on p.ResidentId equals r.ResidentId
+            select new { p, InternalCode = r.InternalCode ?? "" };
+        if (residentId.HasValue)
+            query = query.Where(x => x.p.ResidentId == residentId.Value);
+        var list = await query
+            .OrderByDescending(x => x.p.SessionDate)
+            .ThenByDescending(x => x.p.RecordingId)
+            .Take(500)
+            .ToListAsync(ct);
+        return list.Select(x => new CounselingSessionDto
+        {
+            Id = x.p.RecordingId.ToString(),
+            ResidentId = x.p.ResidentId.ToString(),
+            ResidentInternalCode = x.InternalCode,
+            SessionDate = x.p.SessionDate ?? "",
+            SocialWorker = x.p.SocialWorker ?? "",
+            SessionType = HouseOfHopeMapper.MapSessionType(x.p.SessionType),
+            DurationMinutes = x.p.SessionDurationMinutes ?? 0,
+            EmotionalStateStart = x.p.EmotionalStateObserved ?? "",
+            EmotionalStateEnd = x.p.EmotionalStateEnd ?? "",
+            Narrative = x.p.SessionNarrative ?? "",
+            Interventions = x.p.InterventionsApplied ?? "",
+            FollowUpActions = x.p.FollowUpActions ?? "",
+            ProgressNoted = x.p.ProgressNoted != 0,
+            ConcernsFlagged = x.p.ConcernsFlagged != 0
+        }).ToList();
+    }
+
+    /// <summary>All intervention plans across residents, newest by target date first.</summary>
+    [HttpGet("intervention-plans")]
+    public async Task<ActionResult<List<InterventionPlanDto>>> GetAllInterventionPlans(
+        [FromQuery] int? residentId,
+        CancellationToken ct)
+    {
+        var query =
+            from p in _db.InterventionPlans.AsNoTracking()
+            join r in _db.Residents.AsNoTracking() on p.ResidentId equals r.ResidentId
+            select new { p, InternalCode = r.InternalCode ?? "" };
+        if (residentId.HasValue)
+            query = query.Where(x => x.p.ResidentId == residentId.Value);
+        var list = await query
+            .OrderByDescending(x => x.p.TargetDate)
+            .ThenByDescending(x => x.p.PlanId)
+            .Take(500)
+            .ToListAsync(ct);
+        return list.Select(x => new InterventionPlanDto
+        {
+            Id = x.p.PlanId.ToString(),
+            ResidentId = x.p.ResidentId.ToString(),
+            ResidentInternalCode = x.InternalCode,
+            PlanCategory = x.p.PlanCategory ?? "",
+            Description = x.p.PlanDescription ?? "",
+            ServicesProvided = x.p.ServicesProvided ?? "",
+            TargetDate = x.p.TargetDate ?? "",
+            Status = HouseOfHopeMapper.MapPlanStatus(x.p.Status),
+            CaseConferenceDate = x.p.CaseConferenceDate ?? ""
+        }).ToList();
+    }
+
     [HttpGet("case-conferences")]
     public async Task<ActionResult<List<UpcomingConferenceDto>>> GetCaseConferences(CancellationToken ct)
     {

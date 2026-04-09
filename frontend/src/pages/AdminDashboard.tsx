@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import {
+  LayoutDashboard,
   Users,
   HandCoins,
   MapPinned,
@@ -22,10 +23,10 @@ const php = (n: number) =>
   new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP', maximumFractionDigits: 0 }).format(n);
 
 const crudLinks = [
-  { name: 'Caseload inventory', to: '/admin/caseload', icon: Users, description: 'Residents — full profile CRUD' },
-  { name: 'Visitations & conferences', to: '/admin/field-ops', icon: MapPinned, description: 'Home visits and case conferences' },
-  { name: 'Donors & contributions', to: '/admin/donors', icon: HandCoins, description: 'Donor profiles and donation records' },
-  { name: 'Process recording', to: '/admin/caseload', icon: Mic2, description: 'Open a resident to add or edit counseling sessions' },
+  { name: 'Caseload Inventory', to: '/admin/caseload', icon: Users, description: 'Residents — full profile CRUD' },
+  { name: 'Visitations & Conferences', to: '/admin/field-ops', icon: MapPinned, description: 'Home visits and case conferences' },
+  { name: 'Donors & Contributions', to: '/admin/donors', icon: HandCoins, description: 'Donor profiles and donation records' },
+  { name: 'Process Recording', to: '/admin/process-recording', icon: Mic2, description: 'All counseling sessions and intervention plans; filter by resident' },
 ];
 
 export default function AdminDashboard() {
@@ -54,7 +55,10 @@ export default function AdminDashboard() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-display font-bold text-foreground">Admin dashboard</h1>
+        <h1 className="text-3xl font-display font-bold text-foreground flex items-center gap-2">
+          <LayoutDashboard className="h-8 w-8 text-primary shrink-0" />
+          Admin Dashboard
+        </h1>
         <p className="text-sm text-muted-foreground mt-1">
           Command center: key counts and trends. Use the links below for create, read, update, and delete on records.
         </p>
@@ -65,7 +69,7 @@ export default function AdminDashboard() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
               <Users className="h-4 w-4 text-primary" />
-              Active residents
+              Active Residents
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -94,7 +98,7 @@ export default function AdminDashboard() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
               <AlertTriangle className="h-4 w-4 text-destructive" />
-              High / critical risk
+              High / Critical Risk
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -125,7 +129,7 @@ export default function AdminDashboard() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
               <HandCoins className="h-4 w-4 text-primary" />
-              Donations this month
+              Donations This Month
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -144,7 +148,7 @@ export default function AdminDashboard() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
               <TrendingUp className="h-4 w-4 text-primary" />
-              Education / health trends
+              Education / Health Trends
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -178,7 +182,7 @@ export default function AdminDashboard() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
               <CalendarDays className="h-4 w-4 text-primary" />
-              Upcoming case conferences
+              Upcoming Case Conferences
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -203,7 +207,7 @@ export default function AdminDashboard() {
       </div>
 
       <div>
-        <h2 className="text-lg font-display font-semibold text-foreground mb-3">Data entry &amp; CRUD</h2>
+        <h2 className="text-lg font-display font-semibold text-foreground mb-3">Data Entry &amp; CRUD</h2>
         <div className="grid sm:grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
           {crudLinks.map((item) => (
             <Link key={item.to} to={item.to} className="block">
@@ -230,7 +234,7 @@ export default function AdminDashboard() {
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium flex items-center gap-2">
             <ClipboardList className="h-4 w-4 text-muted-foreground" />
-            Reports &amp; social (ML roadmap)
+            Reports &amp; Social (ML Roadmap)
           </CardTitle>
         </CardHeader>
         <CardContent className="text-sm text-muted-foreground space-y-2">
@@ -240,7 +244,7 @@ export default function AdminDashboard() {
             </Link>{' '}
             and{' '}
             <Link to="/admin/social-media" className="text-primary font-medium hover:underline">
-              Social media analytics
+              Social Media Analytics
             </Link>{' '}
             stay as placeholders until ML-backed dashboards are wired. Deep donation and resident analytics remain available under Reports API for future use.
           </p>
