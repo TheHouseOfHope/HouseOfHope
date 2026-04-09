@@ -75,7 +75,8 @@ public static class DataSeeder
         // CsvHelper runs PrepareHeaderForMatch on CSV headers *and* property names; use one symmetric form.
         var config = new CsvConfiguration(CultureInfo.InvariantCulture)
         {
-            PrepareHeaderForMatch = args => args.Header.Replace("_", "", StringComparison.Ordinal).ToLowerInvariant()
+            PrepareHeaderForMatch = args => args.Header.Replace("_", "", StringComparison.Ordinal).ToLowerInvariant(),
+            IgnoreReferences = true
         };
         using var reader = new StreamReader(filePath);
         using var csv = new CsvReader(reader, config);
