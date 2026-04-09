@@ -90,6 +90,9 @@ export type SupporterType = 'monetary' | 'in-kind' | 'volunteer' | 'skills' | 's
 export interface Supporter {
   id: string;
   displayName: string;
+  email?: string;
+  hasLinkedLogin?: boolean;
+  hasAdminRole?: boolean;
   supporterType: SupporterType;
   status: 'active' | 'inactive';
   country: string;

@@ -74,6 +74,11 @@ export interface DashboardSummary {
   upcomingConferences: UpcomingConference[];
 }
 
+export interface UnlinkedLogin {
+  userId: string;
+  email: string;
+}
+
 export const fetchResidents = () => apiFetch<Resident[]>('/Residents');
 
 export const fetchResident = (id: string) => apiFetch<Resident>(`/Residents/${id}`);
@@ -168,6 +173,17 @@ export const updateDonation = (id: string, payload: {
   notes?: string;
 }) => apiFetch<void>(`/Donations/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
 export const deleteDonation = (id: string) => apiFetch<void>(`/Donations/${id}?confirm=true`, { method: 'DELETE' });
+export const promoteDonorToAdmin = (payload: { supporterId?: number; email?: string }) =>
+  apiFetch<{ message: string; email: string }>('/auth/admin/promote-donor', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+export const fetchUnlinkedDonorLogins = () => apiFetch<UnlinkedLogin[]>('/auth/admin/unlinked-donor-logins');
+export const linkDonorToLogin = (payload: { supporterId: number; userId: string }) =>
+  apiFetch<{ message: string; email: string }>('/auth/admin/link-donor-login', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
 
 export type ResidentUpsertPayload = {
   caseControlNumber: string;

@@ -7,6 +7,8 @@ import {
   deleteSupporter,
   fetchDonations,
   fetchSupporters,
+  fetchUnlinkedDonorLogins,
+  promoteDonorToAdmin,
   updateDonation,
   updateSupporter,
 } from '@/lib/api-endpoints';
@@ -22,8 +24,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, Search, Trash2, Pencil, X, HandCoins } from 'lucide-react';
+import { Plus, Search, Trash2, Pencil, HandCoins, ChevronDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ConfirmDeleteDialog } from '@/components/ConfirmDeleteDialog';
@@ -33,22 +34,56 @@ import { compareDonationValue, compareRiskLevel, compareText } from '@/lib/table
 import { buildAdminDonationBody, type UiDonationType } from '@/lib/donationPayload';
 import { EditableSelect } from '@/components/EditableSelect';
 import { mergeDistinctOptions } from '@/lib/residentFieldOptions';
-
-function matchSelectOption(value: string, options: string[]): { select: string; other: string } {
-  const n = value.trim().toLowerCase();
-  const hit = options.find((o) => o.trim().toLowerCase() === n);
-  if (hit) return { select: hit, other: '' };
-  if (!value.trim()) return { select: '', other: '' };
-  return { select: 'other', other: value };
-}
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 const donorTypeOptions = ['monetary', 'in-kind', 'volunteer', 'skills', 'social-media', 'partner', 'other'];
 const donationTypeOptions: UiDonationType[] = ['monetary', 'in-kind', 'time', 'skills', 'social-media'];
 const channelOptions = ['web portal', 'referral', 'event', 'social media', 'email', 'other'];
 const countrySeeds = ['Philippines', 'United States', 'Canada', 'United Kingdom', 'Australia', 'Japan', 'Singapore'];
-
 function sortStrings(a: string, b: string) {
   return a.localeCompare(b, undefined, { sensitivity: 'base' });
+}
+
+function normalizeToken(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function canonicalCountryKey(value: string): string {
+  const key = normalizeToken(value);
+  if (key === 'usa' || key === 'us' || key === 'unitedstates' || key === 'unitedstatesofamerica') return 'unitedstates';
+  return key;
+}
+
+function canonicalCountryLabel(value: string): string {
+  const key = canonicalCountryKey(value);
+  if (key === 'unitedstates') return 'United States';
+  return value
+    .trim()
+    .replace(/\s+/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function canonicalChannelKey(value: string): string {
+  const key = normalizeToken(value);
+  if (key === 'socialmedia') return 'socialmedia';
+  if (key === 'webportal' || key === 'website') return 'webportal';
+  if (key === 'wordofmouth') return 'wordofmouth';
+  return key;
+}
+
+function formatChannel(value: string): string {
+  const key = canonicalChannelKey(value);
+  if (key === 'wordofmouth') return 'Word of Mouth';
+  if (key === 'partnerreferral') return 'Partner Referral';
+  if (key === 'socialmedia') return 'Social Media';
+  if (key === 'webportal') return 'Web Portal';
+
+  return value
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/[-_]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 export default function DonorsContributions() {
@@ -59,8 +94,11 @@ export default function DonorsContributions() {
   const donations = donationsQ.data ?? [];
 
   const [search, setSearch] = useState('');
-  const [typeFilter, setTypeFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [accessFilter, setAccessFilter] = useState<'all' | 'linked' | 'unlinked'>('all');
+  const [countryFilter, setCountryFilter] = useState('all');
+  const [channelFilter, setChannelFilter] = useState('all');
+  const [churnRiskFilter, setChurnRiskFilter] = useState('all');
   const [selectedDonor, setSelectedDonor] = useState<Supporter | null>(null);
   const [donorDialogOpen, setDonorDialogOpen] = useState(false);
   const [donationDialogOpen, setDonationDialogOpen] = useState(false);
@@ -68,6 +106,8 @@ export default function DonorsContributions() {
   const [editingDonation, setEditingDonation] = useState<Donation | null>(null);
   const [deleteDonorTarget, setDeleteDonorTarget] = useState<Supporter | null>(null);
   const [deleteDonationTarget, setDeleteDonationTarget] = useState<Donation | null>(null);
+  const [donorLinkAdvancedOpen, setDonorLinkAdvancedOpen] = useState(false);
+  const [saveDonorAndAddDonation, setSaveDonorAndAddDonation] = useState(false);
   const { toast } = useToast();
 
   const [allDonationTypeFilter, setAllDonationTypeFilter] = useState<string>('all');
@@ -76,15 +116,14 @@ export default function DonorsContributions() {
 
   const [donorForm, setDonorForm] = useState({
     displayName: '',
+    email: '',
     supporterType: 'monetary',
     supporterTypeOther: '',
     status: 'active',
     country: '',
     countryOther: '',
-    email: '',
     acquisitionChannel: 'web portal',
     acquisitionChannelOther: '',
-    firstDonationDate: '',
   });
   const [donationForm, setDonationForm] = useState({
     supporterId: '',
@@ -119,6 +158,28 @@ export default function DonorsContributions() {
     () => mergeDistinctOptions(supporters.map((s) => s.country).filter(Boolean) as string[], countrySeeds),
     [supporters],
   );
+  const countryFilterOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const country of countryOptions) {
+      const key = canonicalCountryKey(country);
+      if (!key) continue;
+      if (!map.has(key)) map.set(key, canonicalCountryLabel(country));
+    }
+    return [...map.entries()]
+      .map(([value, label]) => ({ value, label }))
+      .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }));
+  }, [countryOptions]);
+  const channelFilterOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const channel of channelValues) {
+      const key = canonicalChannelKey(channel);
+      if (!key) continue;
+      if (!map.has(key)) map.set(key, formatChannel(channel));
+    }
+    return [...map.entries()]
+      .map(([value, label]) => ({ value, label }))
+      .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }));
+  }, [channelValues]);
   const normalizedDonations = useMemo(
     () => [...donations].sort((a, b) => (b.date || '').localeCompare(a.date || '') || Number(b.id) - Number(a.id)),
     [donations],
@@ -126,9 +187,15 @@ export default function DonorsContributions() {
 
   const filteredDonors = supporters.filter((s) => {
     const matchesSearch = s.displayName.toLowerCase().includes(search.toLowerCase());
-    const matchesType = typeFilter === 'all' || s.supporterType === typeFilter;
     const matchesStatus = statusFilter === 'all' || s.status === statusFilter;
-    return matchesSearch && matchesType && matchesStatus;
+    const matchesAccess =
+      accessFilter === 'all' ||
+      (accessFilter === 'linked' && !!s.hasLinkedLogin) ||
+      (accessFilter === 'unlinked' && !s.hasLinkedLogin);
+    const matchesCountry = countryFilter === 'all' || canonicalCountryKey(s.country || '') === countryFilter;
+    const matchesChannel = channelFilter === 'all' || canonicalChannelKey(s.acquisitionChannel || '') === channelFilter;
+    const matchesRisk = churnRiskFilter === 'all' || s.churnRisk === churnRiskFilter;
+    return matchesSearch && matchesStatus && matchesAccess && matchesCountry && matchesChannel && matchesRisk;
   });
 
   const filteredAllDonations = normalizedDonations.filter((d: Donation) => {
@@ -148,8 +215,6 @@ export default function DonorsContributions() {
       switch (donorSortKey) {
         case 'displayName':
           return compareText(a.displayName, b.displayName, donorSortDir);
-        case 'supporterType':
-          return compareText(a.supporterType, b.supporterType, donorSortDir);
         case 'status':
           return compareText(a.status, b.status, donorSortDir);
         case 'country':
@@ -158,6 +223,13 @@ export default function DonorsContributions() {
           return compareText(a.acquisitionChannel || '', b.acquisitionChannel || '', donorSortDir);
         case 'churnRisk':
           return compareRiskLevel(a.churnRisk, b.churnRisk, donorSortDir);
+        case 'access':
+          return compareText(a.hasLinkedLogin ? 'linked' : 'unlinked', b.hasLinkedLogin ? 'linked' : 'unlinked', donorSortDir);
+        case 'details': {
+          const aAction = a.hasLinkedLogin ? (a.hasAdminRole ? 'view only' : 'make admin') : 'link to login';
+          const bAction = b.hasLinkedLogin ? (b.hasAdminRole ? 'view only' : 'make admin') : 'link to login';
+          return compareText(aAction, bAction, donorSortDir);
+        }
         default:
           return 0;
       }
@@ -194,19 +266,20 @@ export default function DonorsContributions() {
     ? normalizedDonations.filter((d: Donation) => d.supporterId === selectedDonor.id)
     : [];
 
-  const resetDonorForm = () =>
+  const resetDonorForm = () => {
+    setDonorLinkAdvancedOpen(false);
     setDonorForm({
       displayName: '',
+      email: '',
       supporterType: 'monetary',
       supporterTypeOther: '',
       status: 'active',
       country: '',
       countryOther: '',
-      email: '',
       acquisitionChannel: 'web portal',
       acquisitionChannelOther: '',
-      firstDonationDate: '',
     });
+  };
   const resetDonationForm = () =>
     setDonationForm({
       supporterId: '',
@@ -222,27 +295,45 @@ export default function DonorsContributions() {
     mutationFn: async () => {
       const supporterType = donorForm.supporterType === 'other' ? donorForm.supporterTypeOther : donorForm.supporterType;
       const acquisitionChannel = donorForm.acquisitionChannel === 'other' ? donorForm.acquisitionChannelOther : donorForm.acquisitionChannel;
+      const emailTrimmed = donorForm.email.trim();
       const payload = {
         displayName: donorForm.displayName.trim(),
         supporterType,
         status: donorForm.status,
         country:
           (donorForm.country === 'other' ? donorForm.countryOther : donorForm.country).trim() || undefined,
-        email: donorForm.email.trim() || undefined,
+        email: emailTrimmed || undefined,
         acquisitionChannel: acquisitionChannel?.trim() || undefined,
-        firstDonationDate: donorForm.firstDonationDate || undefined,
       };
       if (editingDonor) return updateSupporter(editingDonor.id, payload);
       return createSupporter(payload);
     },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['supporters'] });
+    onSuccess: async (savedSupporter) => {
+      const supporterId = editingDonor?.id ?? (savedSupporter as Supporter | undefined)?.id;
+      const openDonationForSavedDonor = saveDonorAndAddDonation && !!supporterId;
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['supporters'] }),
+        queryClient.invalidateQueries({ queryKey: ['unlinked-donor-logins'] }),
+      ]);
+      setSaveDonorAndAddDonation(false);
       setDonorDialogOpen(false);
-      setEditingDonor(null);
-      resetDonorForm();
-      toast({ title: 'Saved', description: 'Donor profile saved successfully.' });
+      if (openDonationForSavedDonor && supporterId) {
+        setEditingDonation(null);
+        resetDonationForm();
+        setDonationForm((f) => ({ ...f, supporterId }));
+        setDonationDialogOpen(true);
+      }
+      toast({
+        title: 'Saved',
+        description: openDonationForSavedDonor
+          ? 'Donor saved. Continue by recording a donation.'
+          : 'Donor profile saved successfully.',
+      });
     },
-    onError: () => toast({ title: 'Save failed', description: 'Could not save donor.', variant: 'destructive' }),
+    onError: () => {
+      setSaveDonorAndAddDonation(false);
+      toast({ title: 'Save failed', description: 'Could not save donor.', variant: 'destructive' });
+    },
   });
 
   const saveDonationMutation = useMutation({
@@ -300,6 +391,32 @@ export default function DonorsContributions() {
     },
     onError: () => toast({ title: 'Delete failed', description: 'Could not delete donation.', variant: 'destructive' }),
   });
+  const promoteDonorMutation = useMutation({
+    mutationFn: async (supporter: Supporter) => {
+      const supporterId = Number(supporter.id);
+      return promoteDonorToAdmin({
+        supporterId: Number.isFinite(supporterId) ? supporterId : undefined,
+        email: supporter.email,
+      });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['supporters'] });
+      toast({ title: 'Role updated', description: 'Donor now has admin access.' });
+    },
+    onError: (error) => {
+      toast({
+        title: 'Promotion failed',
+        description: error instanceof Error ? error.message : 'Could not promote donor to admin.',
+        variant: 'destructive',
+      });
+    },
+  });
+  const unlinkedLoginsQ = useQuery({
+    queryKey: ['unlinked-donor-logins'],
+    queryFn: fetchUnlinkedDonorLogins,
+    enabled: donorDialogOpen && donorLinkAdvancedOpen,
+  });
+  const unlinkedLoginOptions = unlinkedLoginsQ.data ?? [];
 
   const loading = supportersQ.isLoading || donationsQ.isLoading;
 
@@ -337,6 +454,11 @@ export default function DonorsContributions() {
     setDonationDialogOpen(true);
   };
 
+  const getDonorAccessStatus = (supporter: Supporter): { label: string; linked: boolean } => {
+    if (supporter.hasLinkedLogin) return { label: 'Login linked', linked: true };
+    return { label: 'No login linked', linked: false };
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -359,12 +481,12 @@ export default function DonorsContributions() {
         Allocation by safehouse/program is recorded in the database; detailed allocation UI ships with the analytics phase.
       </p>
 
-      <div className="flex flex-col sm:flex-row gap-3">
+      <div className="flex flex-col lg:flex-row flex-wrap gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search donors by name..."
-            className="pl-10"
+            placeholder="Search donors..."
+            className="pl-10 min-w-[260px] lg:min-w-[360px]"
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);
@@ -372,18 +494,6 @@ export default function DonorsContributions() {
             }}
           />
         </div>
-        <Select value={typeFilter} onValueChange={(v) => { setTypeFilter(v); setCurrentPage(1); }}>
-          <SelectTrigger className="w-[200px]"><SelectValue placeholder="Type" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All types</SelectItem>
-            <SelectItem value="monetary">Monetary donor</SelectItem>
-            <SelectItem value="in-kind">In-kind donor</SelectItem>
-            <SelectItem value="volunteer">Volunteer</SelectItem>
-            <SelectItem value="skills">Skills contributor</SelectItem>
-            <SelectItem value="social-media">Social media advocate</SelectItem>
-            <SelectItem value="partner">Partner organization</SelectItem>
-          </SelectContent>
-        </Select>
         <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setCurrentPage(1); }}>
           <SelectTrigger className="w-[140px]"><SelectValue placeholder="Status" /></SelectTrigger>
           <SelectContent>
@@ -392,6 +502,58 @@ export default function DonorsContributions() {
             <SelectItem value="inactive">Inactive</SelectItem>
           </SelectContent>
         </Select>
+        <Select value={accessFilter} onValueChange={(v: 'all' | 'linked' | 'unlinked') => { setAccessFilter(v); setCurrentPage(1); }}>
+          <SelectTrigger className="w-[170px]"><SelectValue placeholder="Access" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All access</SelectItem>
+            <SelectItem value="linked">Login linked</SelectItem>
+            <SelectItem value="unlinked">No login linked</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={countryFilter} onValueChange={(v) => { setCountryFilter(v); setCurrentPage(1); }}>
+          <SelectTrigger className="w-[180px]"><SelectValue placeholder="Country" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All countries</SelectItem>
+            {countryFilterOptions.map((country) => (
+              <SelectItem key={country.value} value={country.value}>{country.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={channelFilter} onValueChange={(v) => { setChannelFilter(v); setCurrentPage(1); }}>
+          <SelectTrigger className="w-[200px]"><SelectValue placeholder="Channel" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All channels</SelectItem>
+            {channelFilterOptions.map((channel) => (
+              <SelectItem key={channel.value} value={channel.value}>{channel.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={churnRiskFilter} onValueChange={(v) => { setChurnRiskFilter(v); setCurrentPage(1); }}>
+          <SelectTrigger className="w-[160px]"><SelectValue placeholder="Churn risk" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All risk</SelectItem>
+            <SelectItem value="low">Low</SelectItem>
+            <SelectItem value="medium">Medium</SelectItem>
+            <SelectItem value="high">High</SelectItem>
+            <SelectItem value="critical">Critical</SelectItem>
+          </SelectContent>
+        </Select>
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full sm:w-auto"
+          onClick={() => {
+            setSearch('');
+            setStatusFilter('all');
+            setAccessFilter('all');
+            setCountryFilter('all');
+            setChannelFilter('all');
+            setChurnRiskFilter('all');
+            setCurrentPage(1);
+          }}
+        >
+          Clear filters
+        </Button>
       </div>
 
       <div className="bg-card rounded-xl border shadow-sm overflow-x-auto">
@@ -407,13 +569,6 @@ export default function DonorsContributions() {
                   onSort={() => handleDonorSort('displayName')}
                 >
                   Name
-                </SortableTableHead>
-                <SortableTableHead
-                  active={donorSortKey === 'supporterType'}
-                  direction={donorSortKey === 'supporterType' ? donorSortDir : null}
-                  onSort={() => handleDonorSort('supporterType')}
-                >
-                  Type
                 </SortableTableHead>
                 <SortableTableHead
                   active={donorSortKey === 'status'}
@@ -443,47 +598,78 @@ export default function DonorsContributions() {
                 >
                   Churn risk
                 </SortableTableHead>
-                <TableHead className="w-[100px]">Details</TableHead>
+                <SortableTableHead
+                  active={donorSortKey === 'access'}
+                  direction={donorSortKey === 'access' ? donorSortDir : null}
+                  onSort={() => handleDonorSort('access')}
+                >
+                  Access
+                </SortableTableHead>
+                <SortableTableHead
+                  active={donorSortKey === 'details'}
+                  direction={donorSortKey === 'details' ? donorSortDir : null}
+                  onSort={() => handleDonorSort('details')}
+                  className="w-[100px]"
+                >
+                  Details
+                </SortableTableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {paginated.map((s) => (
-                <TableRow key={s.id}>
+              {paginated.map((s) => {
+                const access = getDonorAccessStatus(s);
+                return (
+                  <TableRow key={s.id}>
                   <TableCell className="font-medium">{s.displayName}</TableCell>
-                  <TableCell className="capitalize">{s.supporterType.replace('-', ' ')}</TableCell>
                   <TableCell>
                     <Badge variant={s.status === 'active' ? 'default' : 'secondary'}>{s.status}</Badge>
                   </TableCell>
                   <TableCell>{s.country}</TableCell>
-                  <TableCell className="text-sm">{s.acquisitionChannel}</TableCell>
+                  <TableCell className="text-sm">{formatChannel(s.acquisitionChannel || '') || '—'}</TableCell>
                   <TableCell>
                     <RiskBadge level={s.churnRisk} />
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={access.linked ? 'default' : 'secondary'}>{access.label}</Badge>
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-1">
                       <Button variant="outline" size="sm" onClick={() => setSelectedDonor(s)}>
                         View
                       </Button>
+                      {s.hasLinkedLogin && !s.hasAdminRole ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={promoteDonorMutation.isPending}
+                          onClick={() => promoteDonorMutation.mutate(s)}
+                          title="Grant admin role"
+                        >
+                          Make admin
+                        </Button>
+                      ) : null}
                       <Button
                         variant="ghost"
                         size="icon"
                         onClick={() => {
                           setEditingDonor(s);
                           (() => {
-                            const c = matchSelectOption(s.country ?? '', countryOptions);
-                            const ch = (s.acquisitionChannel || '').toLowerCase();
-                            const chHit = channelValues.some((x) => x.toLowerCase() === ch);
+                            const matchedCountry = countryFilterOptions.find(
+                              (o) => canonicalCountryKey(o.label) === canonicalCountryKey(s.country || ''),
+                            );
+                            const matchedChannel = channelFilterOptions.find(
+                              (o) => canonicalChannelKey(o.label) === canonicalChannelKey(s.acquisitionChannel || ''),
+                            );
                             setDonorForm({
                               displayName: s.displayName,
+                              email: s.email || '',
                               supporterType: donorTypeOptions.includes(s.supporterType) ? s.supporterType : 'other',
                               supporterTypeOther: donorTypeOptions.includes(s.supporterType) ? '' : s.supporterType,
                               status: s.status,
-                              country: c.select === 'other' ? 'other' : c.select,
-                              countryOther: c.other,
-                              email: '',
-                              acquisitionChannel: chHit ? ch : 'other',
-                              acquisitionChannelOther: chHit ? '' : (s.acquisitionChannel || ''),
-                              firstDonationDate: s.firstDonationDate || '',
+                              country: matchedCountry ? matchedCountry.label : 'other',
+                              countryOther: matchedCountry ? '' : (s.country || ''),
+                              acquisitionChannel: matchedChannel ? matchedChannel.label : 'other',
+                              acquisitionChannelOther: matchedChannel ? '' : (s.acquisitionChannel || ''),
                             });
                           })();
                           setDonorDialogOpen(true);
@@ -496,8 +682,9 @@ export default function DonorsContributions() {
                       </Button>
                     </div>
                   </TableCell>
-                </TableRow>
-              ))}
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         )}
@@ -604,21 +791,9 @@ export default function DonorsContributions() {
           <DialogHeader className="px-6 pt-6 pb-2 shrink-0">
             <DialogTitle className="font-display">{selectedDonor?.displayName}</DialogTitle>
           </DialogHeader>
-          <Button variant="ghost" size="icon" className="absolute right-4 top-4" onClick={() => setSelectedDonor(null)}>
-            <X className="h-4 w-4" />
-          </Button>
           {selectedDonor && (
-            <Tabs defaultValue="donations" className="flex-1 flex flex-col min-h-0 px-6 pb-6">
-              <TabsList>
-                <TabsTrigger value="profile">Profile</TabsTrigger>
-                <TabsTrigger value="donations">Donations</TabsTrigger>
-              </TabsList>
-              <TabsContent value="profile" className="mt-4 text-sm space-y-2 overflow-y-auto max-h-[50vh]">
-                <p><span className="text-muted-foreground">Type:</span> {selectedDonor.supporterType}</p>
-                <p><span className="text-muted-foreground">Status:</span> {selectedDonor.status}</p>
-                <p><span className="text-muted-foreground">First gift:</span> {selectedDonor.firstDonationDate || '—'}</p>
-              </TabsContent>
-              <TabsContent value="donations" className="mt-4 space-y-3 overflow-y-auto max-h-[50vh]">
+            <div className="flex-1 min-h-0 px-6 pb-6">
+              <div className="mt-2 space-y-3 overflow-y-auto max-h-[62vh]">
                 <Button
                   size="sm"
                   onClick={() => {
@@ -659,13 +834,22 @@ export default function DonorsContributions() {
                   </div>
                 ))}
                 {donorDonations.length === 0 && <p className="text-sm text-muted-foreground">No donations recorded.</p>}
-              </TabsContent>
-            </Tabs>
+              </div>
+            </div>
           )}
         </DialogContent>
       </Dialog>
 
-      <Dialog open={donorDialogOpen} onOpenChange={setDonorDialogOpen}>
+      <Dialog
+        open={donorDialogOpen}
+        onOpenChange={(open) => {
+          setDonorDialogOpen(open);
+          if (!open) {
+            setEditingDonor(null);
+            resetDonorForm();
+          }
+        }}
+      >
         <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-display">{editingDonor ? 'Edit donor' : 'Add donor'}</DialogTitle>
@@ -676,6 +860,19 @@ export default function DonorsContributions() {
               <Input value={donorForm.displayName} onChange={(e) => setDonorForm({ ...donorForm, displayName: e.target.value })} />
             </div>
             <div>
+              <Label>Email (optional)</Label>
+              <Input
+                type="email"
+                autoComplete="email"
+                placeholder="name@example.com"
+                value={donorForm.email}
+                onChange={(e) => setDonorForm({ ...donorForm, email: e.target.value })}
+              />
+              <p className="text-xs text-muted-foreground mt-1.5">
+                For portal sign-in to match this record, use the same email they use to register. You can fix typos or offline-only entries here.
+              </p>
+            </div>
+            <div>
               <Label>Type</Label>
               <Select value={donorForm.supporterType} onValueChange={(v) => setDonorForm({ ...donorForm, supporterType: v })}>
                 <SelectTrigger>
@@ -684,7 +881,7 @@ export default function DonorsContributions() {
                 <SelectContent>
                   {donorTypeValues.filter((t) => t !== 'other').map((t) => (
                     <SelectItem key={t} value={t}>
-                      {t}
+                      {t.replace(/[-_]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
                     </SelectItem>
                   ))}
                   <SelectItem value="other">Add new…</SelectItem>
@@ -704,65 +901,104 @@ export default function DonorsContributions() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="active">active</SelectItem>
-                  <SelectItem value="inactive">inactive</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="inactive">Inactive</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            <div>
-              <Label>Email (optional)</Label>
-              <Input value={donorForm.email} onChange={(e) => setDonorForm({ ...donorForm, email: e.target.value })} />
-            </div>
+            <Collapsible open={donorLinkAdvancedOpen} onOpenChange={setDonorLinkAdvancedOpen}>
+              <CollapsibleTrigger asChild>
+                <Button type="button" variant="ghost" size="sm" className="flex w-full justify-between px-0 h-auto py-1 font-normal text-muted-foreground hover:text-foreground">
+                  <span>Advanced — copy email from an unlinked account</span>
+                  <ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${donorLinkAdvancedOpen ? 'rotate-180' : ''}`} />
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="space-y-2 pt-1">
+                <p className="text-xs text-muted-foreground">
+                  Rare: a donor account exists in the system but has no matching profile row yet. Choosing one fills the email field above; save when ready.
+                </p>
+                {unlinkedLoginsQ.isLoading ? (
+                  <p className="text-xs text-muted-foreground">Loading accounts…</p>
+                ) : unlinkedLoginOptions.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">No unlinked donor accounts right now — set email manually.</p>
+                ) : (
+                  <div>
+                    <Label className="text-xs">Unlinked donor logins</Label>
+                    <Select
+                      value=""
+                      onValueChange={(userId) => {
+                        const row = unlinkedLoginOptions.find((u) => u.userId === userId);
+                        if (row) setDonorForm((f) => ({ ...f, email: row.email }));
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Choose account to copy email" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {unlinkedLoginOptions.map((u) => (
+                          <SelectItem key={u.userId} value={u.userId}>
+                            {u.email}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </CollapsibleContent>
+            </Collapsible>
             <EditableSelect
               label="Country"
               allowEmpty
               placeholder="Select country"
               value={donorForm.country}
               customValue={donorForm.countryOther}
-              options={countryOptions}
+              options={countryFilterOptions.map((o) => o.label)}
               onChange={(v) => setDonorForm({ ...donorForm, country: v })}
               onCustomChange={(v) => setDonorForm({ ...donorForm, countryOther: v })}
             />
-            <div>
-              <Label>Acquisition channel</Label>
-              <Select value={donorForm.acquisitionChannel} onValueChange={(v) => setDonorForm({ ...donorForm, acquisitionChannel: v })}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {channelValues.map((c) => (
-                    <SelectItem key={c} value={c}>
-                      {c}
-                    </SelectItem>
-                  ))}
-                  <SelectItem value="other">Add new…</SelectItem>
-                </SelectContent>
-              </Select>
+            <EditableSelect
+              label="Acquisition channel"
+              allowEmpty
+              placeholder="Select channel"
+              value={donorForm.acquisitionChannel}
+              customValue={donorForm.acquisitionChannelOther}
+              options={channelFilterOptions.map((o) => o.label)}
+              onChange={(v) => setDonorForm({ ...donorForm, acquisitionChannel: v })}
+              onCustomChange={(v) => setDonorForm({ ...donorForm, acquisitionChannelOther: v })}
+            />
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Button
+                className="flex-1"
+                onClick={() => {
+                  setSaveDonorAndAddDonation(false);
+                  saveDonorMutation.mutate();
+                }}
+                disabled={
+                  saveDonorMutation.isPending ||
+                  !donorForm.displayName ||
+                  (donorForm.supporterType === 'other' && !donorForm.supporterTypeOther) ||
+                  (donorForm.country === 'other' && !donorForm.countryOther.trim())
+                }
+              >
+                {saveDonorMutation.isPending && !saveDonorAndAddDonation ? 'Saving...' : 'Save donor'}
+              </Button>
+              <Button
+                className="flex-1"
+                variant="outline"
+                onClick={() => {
+                  setSaveDonorAndAddDonation(true);
+                  saveDonorMutation.mutate();
+                }}
+                disabled={
+                  saveDonorMutation.isPending ||
+                  !donorForm.displayName ||
+                  (donorForm.supporterType === 'other' && !donorForm.supporterTypeOther) ||
+                  (donorForm.country === 'other' && !donorForm.countryOther.trim())
+                }
+              >
+                {saveDonorMutation.isPending && saveDonorAndAddDonation ? 'Saving...' : 'Save donor and record donation'}
+              </Button>
             </div>
-            {donorForm.acquisitionChannel === 'other' && (
-              <div>
-                <Label>New channel</Label>
-                <Input
-                  value={donorForm.acquisitionChannelOther}
-                  onChange={(e) => setDonorForm({ ...donorForm, acquisitionChannelOther: e.target.value })}
-                />
-              </div>
-            )}
-            <div>
-              <Label>First donation date (optional)</Label>
-              <Input type="date" value={donorForm.firstDonationDate} onChange={(e) => setDonorForm({ ...donorForm, firstDonationDate: e.target.value })} />
-            </div>
-            <Button
-              onClick={() => saveDonorMutation.mutate()}
-              disabled={
-                saveDonorMutation.isPending ||
-                !donorForm.displayName ||
-                (donorForm.supporterType === 'other' && !donorForm.supporterTypeOther) ||
-                (donorForm.country === 'other' && !donorForm.countryOther.trim())
-              }
-            >
-              {saveDonorMutation.isPending ? 'Saving...' : 'Save donor'}
-            </Button>
           </div>
         </DialogContent>
       </Dialog>

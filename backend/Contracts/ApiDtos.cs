@@ -83,12 +83,21 @@ public class SupporterDto
 {
     public string Id { get; set; } = "";
     public string DisplayName { get; set; } = "";
+    public string? Email { get; set; }
+    public bool HasLinkedLogin { get; set; }
+    public bool HasAdminRole { get; set; }
     public string SupporterType { get; set; } = "";
     public string Status { get; set; } = "";
     public string Country { get; set; } = "";
     public string AcquisitionChannel { get; set; } = "";
     public string FirstDonationDate { get; set; } = "";
     public string ChurnRisk { get; set; } = "";
+}
+
+public class UnlinkedLoginDto
+{
+    public string UserId { get; set; } = "";
+    public string Email { get; set; } = "";
 }
 
 public class DonationDto

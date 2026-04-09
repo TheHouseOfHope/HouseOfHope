@@ -94,6 +94,8 @@ function AdminSidebarContent() {
 }
 
 export function AdminLayout() {
+  const { user } = useAuth();
+
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full">
@@ -102,6 +104,11 @@ export function AdminLayout() {
           <header className="h-14 flex items-center border-b bg-card/80 backdrop-blur-sm px-4 sticky top-0 z-40">
             <SidebarTrigger className="mr-4" />
             <h2 className="font-display text-lg font-semibold text-foreground">Admin Portal</h2>
+            <div className="ml-auto">
+              <span className="text-sm text-muted-foreground">
+                {user?.displayName ? `Hi, ${user.displayName}` : 'Hi'}
+              </span>
+            </div>
           </header>
           <main className="flex-1 p-4 md:p-6 lg:p-8 gradient-warm">
             <Outlet />
