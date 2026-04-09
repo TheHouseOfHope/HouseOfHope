@@ -1,255 +1,431 @@
+import { useMemo } from 'react';
+import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { fetchDashboard, fetchResidents } from '@/lib/api-endpoints';
-import { displaySafehouseName } from '@/lib/safehouseDisplay';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Badge } from '@/components/ui/badge';
+import { StatCard } from '@/components/StatCard';
+import { RiskBadge } from '@/components/RiskBadge';
 import {
-  LayoutDashboard,
+  fetchResidents,
+  fetchDonations,
+  fetchImpactStats,
+  fetchCaseConferences,
+} from '@/lib/api-endpoints';
+import type { Donation, Resident } from '@/lib/types';
+import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import {
   Users,
-  HandCoins,
-  MapPinned,
-  ArrowRight,
+  DollarSign,
   AlertTriangle,
-  CalendarDays,
+  CalendarClock,
   TrendingUp,
-  ClipboardList,
-  Mic2,
+  ArrowRight,
+  RefreshCw,
+  Loader2,
 } from 'lucide-react';
-import type { Resident } from '@/lib/types';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { Skeleton } from '@/components/ui/skeleton';
+import { cn } from '@/lib/utils';
 
-const php = (n: number) =>
-  new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP', maximumFractionDigits: 0 }).format(n);
+/** Match backend `DateTime.UtcNow.ToString("yyyy-MM")` for monthly donation totals */
+function currentUtcMonthPrefix(): string {
+  const d = new Date();
+  const y = d.getUTCFullYear();
+  const m = d.getUTCMonth() + 1;
+  return `${y}-${String(m).padStart(2, '0')}`;
+}
 
-const crudLinks = [
-  { name: 'Caseload Inventory', to: '/admin/caseload', icon: Users, description: 'Residents — full profile CRUD' },
-  { name: 'Visitations & Conferences', to: '/admin/field-ops', icon: MapPinned, description: 'Home visits and case conferences' },
-  { name: 'Donors & Contributions', to: '/admin/donors', icon: HandCoins, description: 'Donor profiles and donation records' },
-  { name: 'Process Recording', to: '/admin/process-recording', icon: Mic2, description: 'All counseling sessions and intervention plans; filter by resident' },
-];
+const queryOpts = {
+  staleTime: 15_000,
+  gcTime: 5 * 60_000,
+  refetchOnWindowFocus: true,
+  retry: 1,
+  placeholderData: keepPreviousData,
+} as const;
+
+function deriveFromResidents(residents: Resident[] | undefined) {
+  const list = residents ?? [];
+  const active = list.filter((r) => r.caseStatus === 'active').length;
+  const highRisk = list
+    .filter((r) => r.riskLevel === 'high' || r.riskLevel === 'critical')
+    .sort((a, b) => a.internalCode.localeCompare(b.internalCode, undefined, { numeric: true }))
+    .slice(0, 12);
+  return { active, highRisk };
+}
+
+function deriveDonations(donations: Donation[] | undefined, monthPrefix: string) {
+  const list = donations ?? [];
+  const monthlyTotal = list
+    .filter((d) => d.date && d.date.startsWith(monthPrefix))
+    .reduce((sum, d) => sum + (d.amount ?? 0), 0);
+  const recent = [...list]
+    .sort((a, b) => (b.date || '').localeCompare(a.date || ''))
+    .slice(0, 5);
+  return { monthlyTotal, recent };
+}
+
+function sortUpcomingConferences(
+  rows: { id: string; residentCode: string; date: string; type: string }[] | undefined,
+) {
+  if (!rows?.length) return [];
+  return [...rows].sort((a, b) => a.date.localeCompare(b.date)).slice(0, 10);
+}
 
 export default function AdminDashboard() {
-  const dashQ = useQuery({ queryKey: ['dashboard'], queryFn: fetchDashboard });
-  const resQ = useQuery({ queryKey: ['residents'], queryFn: fetchResidents });
+  const queryClient = useQueryClient();
+  const monthPrefix = useMemo(() => currentUtcMonthPrefix(), []);
 
-  const residents = resQ.data ?? [];
-  const dash = dashQ.data;
+  const residentsQ = useQuery({
+    queryKey: ['residents'],
+    queryFn: fetchResidents,
+    ...queryOpts,
+  });
+  const donationsQ = useQuery({
+    queryKey: ['donations'],
+    queryFn: fetchDonations,
+    ...queryOpts,
+  });
+  const impactQ = useQuery({
+    queryKey: ['impact'],
+    queryFn: fetchImpactStats,
+    ...queryOpts,
+  });
+  const conferencesQ = useQuery({
+    queryKey: ['case-conferences'],
+    queryFn: fetchCaseConferences,
+    ...queryOpts,
+  });
 
-  const activeResidents = residents.filter((r: Resident) => r.caseStatus === 'active').length;
-  const activeBySafehouse = residents
-    .filter((r: Resident) => r.caseStatus === 'active')
-    .reduce<Record<string, number>>((acc, r: Resident) => {
-      const k = r.safehouse || 'Unknown';
-      acc[k] = (acc[k] ?? 0) + 1;
-      return acc;
-    }, {});
-  const safehouseRows = Object.entries(activeBySafehouse)
-    .sort((a, b) => displaySafehouseName(a[0]).localeCompare(displaySafehouseName(b[0]), undefined, { numeric: true }))
-    .slice(0, 8);
+  const { active: activeResidents, highRisk: highRiskResidents } = useMemo(
+    () => deriveFromResidents(residentsQ.data),
+    [residentsQ.data],
+  );
 
-  const trend = dash?.educationHealthTrend ?? [];
-  const lastTrend = trend.length ? trend[trend.length - 1] : null;
-  const prevTrend = trend.length > 1 ? trend[trend.length - 2] : null;
+  const { monthlyTotal: monthlyDonationsTotal, recent: recentDonations } = useMemo(
+    () => deriveDonations(donationsQ.data, monthPrefix),
+    [donationsQ.data, monthPrefix],
+  );
+
+  const chartData = impactQ.data?.monthlyTrends ?? [];
+  const upcomingConferences = useMemo(
+    () => sortUpcomingConferences(conferencesQ.data),
+    [conferencesQ.data],
+  );
+  const impact = impactQ.data;
+
+  const refetching =
+    (residentsQ.isFetching && !residentsQ.isPending) ||
+    (donationsQ.isFetching && !donationsQ.isPending) ||
+    (impactQ.isFetching && !impactQ.isPending) ||
+    (conferencesQ.isFetching && !conferencesQ.isPending);
+
+  const handleRefresh = () => {
+    void Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['residents'] }),
+      queryClient.invalidateQueries({ queryKey: ['donations'] }),
+      queryClient.invalidateQueries({ queryKey: ['impact'] }),
+      queryClient.invalidateQueries({ queryKey: ['case-conferences'] }),
+    ]);
+  };
+
+  const allFailed =
+    residentsQ.isError && donationsQ.isError && impactQ.isError && conferencesQ.isError;
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-display font-bold text-foreground flex items-center gap-2">
-          <LayoutDashboard className="h-8 w-8 text-primary shrink-0" />
-          Admin Dashboard
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Command center: key counts and trends. Use the links below for create, read, update, and delete on records.
+    <div className="space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-3xl font-display font-bold text-foreground">Admin Command Center</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Same data as Caseload and Donors: residents, donations, impact trends, and case conferences — refreshed
+            together.
+          </p>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="shrink-0 gap-2"
+          onClick={() => {
+            void handleRefresh();
+          }}
+        >
+          <RefreshCw
+            className={cn(
+              'h-4 w-4',
+              (residentsQ.isFetching || donationsQ.isFetching || impactQ.isFetching || conferencesQ.isFetching) &&
+                'animate-spin',
+            )}
+          />
+          Refresh data
+        </Button>
+      </div>
+
+      {refetching && (
+        <p className="text-xs text-muted-foreground flex items-center gap-2">
+          <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" />
+          Updating…
         </p>
+      )}
+
+      {allFailed && (
+        <Alert variant="destructive">
+          <AlertTitle>Could not load dashboard</AlertTitle>
+          <AlertDescription>
+            Start the API (<code className="text-xs">dotnet run</code> in <code className="text-xs">backend</code>), sign
+            in as admin, then use Refresh.{' '}
+            {[residentsQ.error, donationsQ.error, impactQ.error, conferencesQ.error]
+              .filter(Boolean)
+              .map((e) => (e instanceof Error ? e.message : String(e)))
+              .join(' · ')}
+          </AlertDescription>
+        </Alert>
+      )}
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {residentsQ.isPending && !residentsQ.data ? (
+          <Skeleton className="h-28 rounded-xl" />
+        ) : residentsQ.isError ? (
+          <StatCard
+            title="Active Residents"
+            value="—"
+            icon={<Users className="h-6 w-6" />}
+            description="Could not load residents"
+          />
+        ) : (
+          <StatCard
+            title="Active Residents"
+            value={activeResidents}
+            icon={<Users className="h-6 w-6" />}
+            description="Across all safehouses"
+          />
+        )}
+
+        {residentsQ.isPending && !residentsQ.data ? (
+          <Skeleton className="h-28 rounded-xl" />
+        ) : residentsQ.isError ? (
+          <StatCard
+            title="High/Critical Risk"
+            value="—"
+            icon={<AlertTriangle className="h-6 w-6" />}
+            description="Could not load residents"
+          />
+        ) : (
+          <StatCard
+            title="High/Critical Risk"
+            value={highRiskResidents.length}
+            icon={<AlertTriangle className="h-6 w-6" />}
+            description="Requiring attention"
+          />
+        )}
+
+        {donationsQ.isPending && !donationsQ.data ? (
+          <Skeleton className="h-28 rounded-xl" />
+        ) : donationsQ.isError ? (
+          <StatCard
+            title="Donations (this month)"
+            value="—"
+            icon={<DollarSign className="h-6 w-6" />}
+            description="Could not load donations"
+          />
+        ) : (
+          <StatCard
+            title="Donations (this month)"
+            value={`₱${Math.round(monthlyDonationsTotal).toLocaleString()}`}
+            icon={<DollarSign className="h-6 w-6" />}
+            description="Monetary total (UTC month)"
+          />
+        )}
+
+        {impactQ.isPending && !impactQ.data ? (
+          <Skeleton className="h-28 rounded-xl" />
+        ) : impactQ.isError ? (
+          <StatCard
+            title="Reintegration Rate"
+            value="—"
+            icon={<TrendingUp className="h-6 w-6" />}
+            description="Impact stats unavailable"
+          />
+        ) : (
+          <StatCard
+            title="Reintegration Rate"
+            value={`${impact?.reintegrationSuccessRate ?? 0}%`}
+            icon={<TrendingUp className="h-6 w-6" />}
+            description="Completed / closed cases"
+          />
+        )}
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <Users className="h-4 w-4 text-primary" />
-              Active Residents
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {resQ.isLoading ? (
-              <Skeleton className="h-10 w-24" />
-            ) : (
-              <>
-                <p className="text-3xl font-display font-bold tabular-nums">{activeResidents}</p>
-                <p className="text-xs text-muted-foreground mt-1">Across all safehouses (case status active)</p>
-                {safehouseRows.length > 0 && (
-                  <ul className="mt-3 space-y-1 text-xs text-muted-foreground max-h-28 overflow-y-auto">
-                    {safehouseRows.map(([name, count]) => (
-                      <li key={name} className="flex justify-between gap-2">
-                        <span>{displaySafehouseName(name)}</span>
-                        <span className="tabular-nums text-foreground">{count}</span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </>
-            )}
-          </CardContent>
-        </Card>
+      <div className="grid lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="font-display text-lg">IS413 Admin Modules</CardTitle>
+            </CardHeader>
+            <CardContent className="grid md:grid-cols-2 gap-3">
+              {[
+                { name: 'Donors & Contributions', to: '/admin/donors' },
+                { name: 'Caseload Inventory', to: '/admin/caseload' },
+                { name: 'Process Recording', to: '/admin/process-recording' },
+                { name: 'Home Visitations & Case Conferences', to: '/admin/field-ops' },
+                { name: 'Reports & Analytics', to: '/admin/reports' },
+                { name: 'Social Media Analytics', to: '/admin/social-media' },
+              ].map((module) => (
+                <Link
+                  key={module.name}
+                  to={module.to}
+                  className="flex items-center justify-between rounded-lg border bg-muted/30 px-3 py-2 text-sm hover:bg-muted/60"
+                >
+                  <span>{module.name}</span>
+                  <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                </Link>
+              ))}
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 text-destructive" />
-              High / Critical Risk
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {dashQ.isLoading ? (
-              <Skeleton className="h-10 w-24" />
-            ) : (
-              <>
-                <p className="text-3xl font-display font-bold tabular-nums">{dash?.highRiskResidents.length ?? 0}</p>
-                <p className="text-xs text-muted-foreground mt-1">Residents currently flagged high or critical</p>
-                <ul className="mt-3 space-y-1 text-xs max-h-28 overflow-y-auto">
-                  {(dash?.highRiskResidents ?? []).slice(0, 6).map((r) => (
-                    <li key={r.id}>
-                      <Link to={`/admin/resident/${r.id}`} className="text-primary hover:underline">
-                        {r.internalCode}
-                      </Link>
-                      <Badge variant="outline" className="ml-2 capitalize text-[10px] py-0">
-                        {r.riskLevel}
-                      </Badge>
-                    </li>
+          <Card>
+            <CardHeader>
+              <CardTitle className="font-display text-lg">Education & Health Progress</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {impactQ.isPending && !impactQ.data ? (
+                <Skeleton className="h-[250px] w-full" />
+              ) : impactQ.isError ? (
+                <p className="text-sm text-destructive">Could not load impact / trend data.</p>
+              ) : chartData.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-8 text-center">No trend data yet.</p>
+              ) : (
+                <ResponsiveContainer width="100%" height={250}>
+                  <LineChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(180 15% 90%)" />
+                    <XAxis dataKey="month" fontSize={12} />
+                    <YAxis fontSize={12} domain={[0, 100]} />
+                    <Tooltip />
+                    <Line
+                      type="monotone"
+                      dataKey="education"
+                      stroke="hsl(200 65% 55%)"
+                      strokeWidth={2}
+                      name="Education %"
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="health"
+                      stroke="hsl(174 55% 38%)"
+                      strokeWidth={2}
+                      name="Health %"
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="font-display text-lg flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-risk-high" /> Flagged Residents
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {residentsQ.isPending && !residentsQ.data ? (
+                <Skeleton className="h-32 w-full" />
+              ) : residentsQ.isError ? (
+                <p className="text-sm text-destructive">Could not load residents for risk list.</p>
+              ) : (
+                <div className="space-y-3">
+                  {highRiskResidents.map((r) => (
+                    <Link
+                      key={r.id}
+                      to={`/admin/resident/${r.id}`}
+                      className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted/80 transition-colors"
+                    >
+                      <div>
+                        <p className="font-medium text-sm text-foreground">{r.internalCode}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {r.safehouse} · {r.assignedSocialWorker}
+                        </p>
+                      </div>
+                      <RiskBadge level={r.riskLevel} />
+                    </Link>
                   ))}
-                </ul>
-              </>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <HandCoins className="h-4 w-4 text-primary" />
-              Donations This Month
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {dashQ.isLoading ? (
-              <Skeleton className="h-10 w-32" />
-            ) : (
-              <>
-                <p className="text-3xl font-display font-bold tabular-nums">{php(dash?.monthlyDonationsTotal ?? 0)}</p>
-                <p className="text-xs text-muted-foreground mt-1">Recorded in PHP (calendar month)</p>
-              </>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="sm:col-span-2 xl:col-span-1">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-primary" />
-              Education / Health Trends
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {dashQ.isLoading ? (
-              <Skeleton className="h-16 w-full" />
-            ) : lastTrend ? (
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between gap-4">
-                  <span className="text-muted-foreground">Latest month</span>
-                  <span className="font-medium">
-                    Edu {Math.round(lastTrend.education)}% · Health {Math.round(lastTrend.health)}%
-                  </span>
+                  {highRiskResidents.length === 0 && (
+                    <p className="text-sm text-muted-foreground">No high or critical risk residents in the current sample.</p>
+                  )}
                 </div>
-                {prevTrend && (
-                  <div className="flex justify-between gap-4 text-xs text-muted-foreground">
-                    <span>Prior</span>
-                    <span>
-                      Edu {Math.round(prevTrend.education)}% · Health {Math.round(prevTrend.health)}%
-                    </span>
-                  </div>
-                )}
-                <p className="text-xs text-muted-foreground">From public impact snapshots (aggregate)</p>
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">No trend data yet.</p>
-            )}
-          </CardContent>
-        </Card>
+              )}
+            </CardContent>
+          </Card>
 
-        <Card className="sm:col-span-2 xl:col-span-2">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <CalendarDays className="h-4 w-4 text-primary" />
-              Upcoming Case Conferences
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {dashQ.isLoading ? (
-              <Skeleton className="h-24 w-full" />
-            ) : (dash?.upcomingConferences.length ?? 0) === 0 ? (
-              <p className="text-sm text-muted-foreground">No upcoming conferences with dates on intervention plans.</p>
-            ) : (
-              <ul className="space-y-2 text-sm max-h-40 overflow-y-auto">
-                {dash!.upcomingConferences.map((c) => (
-                  <li key={c.id} className="flex flex-wrap items-baseline justify-between gap-2 border-b border-border/60 pb-2 last:border-0">
-                    <span className="font-medium">{c.date}</span>
-                    <span className="text-muted-foreground">
-                      {c.residentCode} · {c.type}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+          <Card>
+            <CardHeader>
+              <CardTitle className="font-display text-lg">Recent Donations</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {donationsQ.isPending && !donationsQ.data ? (
+                <Skeleton className="h-40 w-full" />
+              ) : donationsQ.isError ? (
+                <p className="text-sm text-destructive">Could not load donations.</p>
+              ) : (
+                <div className="space-y-3">
+                  {recentDonations.map((d) => (
+                    <div
+                      key={d.id}
+                      className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
+                    >
+                      <div>
+                        <p className="font-medium text-sm">{d.donorName}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {d.date} · {d.type}
+                        </p>
+                      </div>
+                      <span className="text-sm font-semibold text-primary">
+                        {d.amount != null
+                          ? `${d.currency === 'USD' ? '$' : '₱'}${d.amount.toLocaleString()}`
+                          : d.type}
+                      </span>
+                    </div>
+                  ))}
+                  {recentDonations.length === 0 && (
+                    <p className="text-sm text-muted-foreground">No recent donations yet.</p>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
 
-      <div>
-        <h2 className="text-lg font-display font-semibold text-foreground mb-3">Data Entry &amp; CRUD</h2>
-        <div className="grid sm:grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-          {crudLinks.map((item) => (
-            <Link key={item.to} to={item.to} className="block">
-              <Card className="h-full hover:border-primary/40 transition-colors">
-                <CardHeader className="pb-2">
-                  <CardTitle className="font-display text-base flex items-center justify-between gap-2">
-                    <span className="flex items-center gap-2">
-                      <item.icon className="h-4 w-4 text-primary shrink-0" />
-                      {item.name}
-                    </span>
-                    <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0" />
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground">{item.description}</p>
-                </CardContent>
-              </Card>
-            </Link>
-          ))}
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="font-display text-lg flex items-center gap-2">
+                <CalendarClock className="h-5 w-5 text-accent" /> Upcoming Conferences
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {conferencesQ.isPending && !conferencesQ.data ? (
+                <Skeleton className="h-40 w-full" />
+              ) : conferencesQ.isError ? (
+                <p className="text-sm text-destructive">Could not load case conferences.</p>
+              ) : (
+                <div className="space-y-3">
+                  {upcomingConferences.map((c) => (
+                    <div key={c.id} className="p-3 rounded-lg bg-muted/50">
+                      <p className="font-medium text-sm">{c.residentCode}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {c.date} · {c.type}
+                      </p>
+                    </div>
+                  ))}
+                  {upcomingConferences.length === 0 && (
+                    <p className="text-sm text-muted-foreground">No upcoming case conferences found.</p>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </div>
-
-      <Card className="border-dashed bg-muted/20">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium flex items-center gap-2">
-            <ClipboardList className="h-4 w-4 text-muted-foreground" />
-            Reports &amp; Social (ML Roadmap)
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="text-sm text-muted-foreground space-y-2">
-          <p>
-            <Link to="/admin/reports" className="text-primary font-medium hover:underline">
-              Reports &amp; Analytics
-            </Link>{' '}
-            and{' '}
-            <Link to="/admin/social-media" className="text-primary font-medium hover:underline">
-              Social Media Analytics
-            </Link>{' '}
-            stay as placeholders until ML-backed dashboards are wired. Deep donation and resident analytics remain available under Reports API for future use.
-          </p>
-        </CardContent>
-      </Card>
     </div>
   );
 }
