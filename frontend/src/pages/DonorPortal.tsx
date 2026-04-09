@@ -167,12 +167,12 @@ export default function DonorPortal() {
         <div className="container mx-auto px-4 space-y-8">
           <div className="bg-card rounded-xl border p-8 shadow-sm">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center">
-                <Heart className="h-6 w-6 text-primary-foreground" />
+              <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center" aria-hidden="true">
+                <Heart className="h-6 w-6 text-primary-foreground" aria-hidden="true" />
               </div>
               <div>
                 <h1 className="text-2xl font-display font-bold text-foreground">Welcome, {user?.displayName}!</h1>
-                <p className="text-muted-foreground text-sm">Thank you for your generous support of House of Hope.</p>
+                <p className="text-foreground/70 text-sm">Thank you for your generous support of House of Hope.</p>
               </div>
             </div>
             <p className="text-sm text-foreground/80 leading-relaxed">
@@ -187,26 +187,43 @@ export default function DonorPortal() {
               [...Array(4)].map((_, i) => <Skeleton key={i} className="h-28 rounded-xl" />)
             ) : (
               <>
-                <StatCard title="Total Given" value={`₱${formattedTotalGiven}`} icon={<DollarSign className="h-6 w-6" />} />
-                <StatCard title="Donations Made" value={myDonations.length} icon={<Heart className="h-6 w-6" />} />
-                <StatCard title="Volunteer Hours" value={formattedHours} icon={<Clock className="h-6 w-6" />} />
-                <StatCard title="In-Kind Value" value={`₱${formattedInKind}`} icon={<Package className="h-6 w-6" />} />
+                <StatCard title="Total Given" value={`₱${formattedTotalGiven}`} icon={<DollarSign className="h-6 w-6" aria-hidden="true" />} />
+                <StatCard title="Donations Made" value={myDonations.length} icon={<Heart className="h-6 w-6" aria-hidden="true" />} />
+                <StatCard title="Volunteer Hours" value={formattedHours} icon={<Clock className="h-6 w-6" aria-hidden="true" />} />
+                <StatCard title="In-Kind Value" value={`₱${formattedInKind}`} icon={<Package className="h-6 w-6" aria-hidden="true" />} />
               </>
             )}
           </div>
 
           <Card>
             <CardHeader>
-              <CardTitle className="font-display text-lg">Your Contribution Breakdown</CardTitle>
+              <CardTitle className="font-display text-lg">
+                <h2 className="text-lg font-display font-semibold">Your Contribution Breakdown</h2>
+              </CardTitle>
             </CardHeader>
             <CardContent>
               {loading ? <Skeleton className="h-24 w-full" /> : (
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-                  <div className="p-3 rounded-lg bg-muted/50 text-center"><p className="text-xl font-bold text-primary">{byType.monetary}</p><p className="text-xs text-muted-foreground">Monetary</p></div>
-                  <div className="p-3 rounded-lg bg-muted/50 text-center"><p className="text-xl font-bold text-primary">{byType['in-kind']}</p><p className="text-xs text-muted-foreground">In-kind</p></div>
-                  <div className="p-3 rounded-lg bg-muted/50 text-center"><p className="text-xl font-bold text-primary">{byType.time}</p><p className="text-xs text-muted-foreground">Time</p></div>
-                  <div className="p-3 rounded-lg bg-muted/50 text-center"><p className="text-xl font-bold text-primary">{byType.skills}</p><p className="text-xs text-muted-foreground">Skills</p></div>
-                  <div className="p-3 rounded-lg bg-muted/50 text-center"><p className="text-xl font-bold text-primary">{byType['social-media']}</p><p className="text-xs text-muted-foreground">Social Media</p></div>
+                  <div className="p-3 rounded-lg bg-muted/50 text-center">
+                    <p className="text-xl font-bold text-primary">{byType.monetary}</p>
+                    <p className="text-xs text-foreground/70">Monetary</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-muted/50 text-center">
+                    <p className="text-xl font-bold text-primary">{byType['in-kind']}</p>
+                    <p className="text-xs text-foreground/70">In-kind</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-muted/50 text-center">
+                    <p className="text-xl font-bold text-primary">{byType.time}</p>
+                    <p className="text-xs text-foreground/70">Time</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-muted/50 text-center">
+                    <p className="text-xl font-bold text-primary">{byType.skills}</p>
+                    <p className="text-xs text-foreground/70">Skills</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-muted/50 text-center">
+                    <p className="text-xl font-bold text-primary">{byType['social-media']}</p>
+                    <p className="text-xs text-foreground/70">Social Media</p>
+                  </div>
                 </div>
               )}
             </CardContent>
@@ -214,16 +231,23 @@ export default function DonorPortal() {
 
           <Card>
             <CardHeader>
-              <CardTitle className="font-display text-lg">Record Donation</CardTitle>
+              <CardTitle className="font-display text-lg">
+                <h2 className="text-lg font-display font-semibold">Record Donation</h2>
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
-                  <Label>Donor</Label>
-                  <Input value={user?.displayName || user?.username || 'Logged-in donor'} disabled />
+                  <Label htmlFor="donor-name">Donor</Label>
+                  <Input
+                    id="donor-name"
+                    value={user?.displayName || user?.username || 'Logged-in donor'}
+                    disabled
+                    aria-label="Donor name"
+                  />
                 </div>
                 <div>
-                  <Label>Donation Type</Label>
+                  <Label htmlFor="donation-type-select">Donation Type</Label>
                   <Select
                     value={donationType}
                     onValueChange={(v: 'monetary' | 'time' | 'in-kind' | 'skills' | 'social-media') => {
@@ -231,7 +255,9 @@ export default function DonorPortal() {
                       setAmount(v === 'monetary' ? '1000' : '2');
                     }}
                   >
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectTrigger id="donation-type-select" aria-label="Select donation type">
+                      <SelectValue />
+                    </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="monetary">Monetary</SelectItem>
                       <SelectItem value="time">Time</SelectItem>
@@ -243,13 +269,22 @@ export default function DonorPortal() {
                 </div>
                 <div>
                   <Label htmlFor="donation-amount">{amountLabel}</Label>
-                  <Input id="donation-amount" type="number" min="0.25" step="0.25" value={amount} onChange={(e) => setAmount(e.target.value)} />
+                  <Input
+                    id="donation-amount"
+                    type="number"
+                    min="0.25"
+                    step="0.25"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                  />
                 </div>
                 {donationType !== 'time' && (
                   <div>
-                    <Label>Input Currency</Label>
+                    <Label htmlFor="input-currency">Input Currency</Label>
                     <Select value={inputCurrency} onValueChange={(v: 'PHP' | 'USD' | 'EUR') => setInputCurrency(v)}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectTrigger id="input-currency" aria-label="Select input currency">
+                        <SelectValue />
+                      </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="PHP">PHP</SelectItem>
                         <SelectItem value="USD">USD</SelectItem>
@@ -260,7 +295,12 @@ export default function DonorPortal() {
                 )}
                 <div>
                   <Label htmlFor="donation-date">Donation Date</Label>
-                  <Input id="donation-date" type="date" value={donationDate} onChange={(e) => setDonationDate(e.target.value)} />
+                  <Input
+                    id="donation-date"
+                    type="date"
+                    value={donationDate}
+                    onChange={(e) => setDonationDate(e.target.value)}
+                  />
                 </div>
                 <EditableSelect
                   label="Campaign / Source"
@@ -274,13 +314,19 @@ export default function DonorPortal() {
                 />
                 <div className="sm:col-span-2">
                   <Label htmlFor="donation-notes">Notes (optional)</Label>
-                  <Textarea id="donation-notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={notesPlaceholder} />
+                  <Textarea
+                    id="donation-notes"
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder={notesPlaceholder}
+                  />
                 </div>
               </div>
               <div className="mt-4">
                 <Button
                   onClick={() => createDonationMutation.mutate()}
                   disabled={createDonationMutation.isPending || !Number(amount) || Number(amount) <= 0 || !donationDate}
+                  aria-label="Submit donation"
                 >
                   {createDonationMutation.isPending ? 'Recording...' : 'Submit Donation'}
                 </Button>
@@ -290,7 +336,9 @@ export default function DonorPortal() {
 
           <Card>
             <CardHeader>
-              <CardTitle className="font-display text-lg">Your Giving History</CardTitle>
+              <CardTitle className="font-display text-lg">
+                <h2 className="text-lg font-display font-semibold">Your Giving History</h2>
+              </CardTitle>
             </CardHeader>
             <CardContent>
               {loading ? <Skeleton className="h-40 w-full" /> : (
@@ -299,9 +347,9 @@ export default function DonorPortal() {
                     <div key={d.id} className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
                       <div>
                         <p className="font-medium text-sm">{d.date}</p>
-                        <p className="text-xs text-muted-foreground capitalize">{d.type} donation</p>
-                        {d.campaignName && <p className="text-xs text-muted-foreground mt-1">Campaign: {d.campaignName}</p>}
-                        {d.notes && <p className="text-xs text-muted-foreground mt-1">{d.notes}</p>}
+                        <p className="text-xs text-foreground/70 capitalize">{d.type} donation</p>
+                        {d.campaignName && <p className="text-xs text-foreground/70 mt-1">Campaign: {d.campaignName}</p>}
+                        {d.notes && <p className="text-xs text-foreground/70 mt-1">{d.notes}</p>}
                       </div>
                       <span className="font-semibold text-primary">
                         {d.type === 'time'
@@ -319,7 +367,7 @@ export default function DonorPortal() {
                     </div>
                   ))}
                   {myDonations.length === 0 && (
-                    <p className="text-sm text-muted-foreground">No donations found for your account name in the database. Sign in as donor (Mila Alvarez) to see sample data.</p>
+                    <p className="text-sm text-foreground/70">No donations found for your account name in the database. Sign in as donor (Mila Alvarez) to see sample data.</p>
                   )}
                 </div>
               )}
