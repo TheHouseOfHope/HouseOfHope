@@ -320,7 +320,7 @@ export default function AdminDashboard() {
                       <div className="min-w-0">
                         <p className="font-medium text-sm text-foreground">{r.internalCode}</p>
                         <p className="text-xs text-muted-foreground truncate">
-                          {r.safehouse} · {r.assignedSocialWorker}
+                          {displaySafehouseName(r.safehouse)} · {r.assignedSocialWorker}
                         </p>
                       </div>
                       <RiskBadge level={r.riskLevel} />
