@@ -127,6 +127,23 @@ export const fetchSupporters = () => apiFetch<Supporter[]>('/Supporters');
 export const fetchChurnRisks = () =>
   apiFetch<Record<string, { riskScore: number; riskTier: string; topDrivers: string[]; recommendedActions: string[] }>>('/ML/donor-churn/all');
 
+export interface SafehousePerformanceMlRow {
+  modelAvailable: boolean;
+  modelVersion: string;
+  scoredAtUtc: string;
+  safehouseId: number;
+  safehouseName: string;
+  outcomeIndexActual: number;
+  outcomeIndexExpected: number;
+  benchmarkGap: number;
+  tierLabel: string;
+  topDrivers: string[];
+  recommendedActions: string[];
+}
+
+export const fetchSafehousePerformance = () =>
+  apiFetch<SafehousePerformanceMlRow[]>('/Analytics/safehouse-performance');
+
 export const createSupporter = (payload: {
   displayName: string;
   supporterType: string;

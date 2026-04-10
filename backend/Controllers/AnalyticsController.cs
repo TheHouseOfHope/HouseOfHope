@@ -13,8 +13,13 @@ namespace HouseOfHope.API.Controllers;
 public class AnalyticsController : ControllerBase
 {
     private readonly LighthouseDbContext _db;
+    private readonly SafehousePerformancePredictionService _safehouseMl;
 
-    public AnalyticsController(LighthouseDbContext db) => _db = db;
+    public AnalyticsController(LighthouseDbContext db, SafehousePerformancePredictionService safehouseMl)
+    {
+        _db = db;
+        _safehouseMl = safehouseMl;
+    }
 
     [HttpGet("impact")]
     public async Task<ActionResult<ImpactStatsDto>> Impact(CancellationToken ct)
@@ -114,6 +119,27 @@ public class AnalyticsController : ControllerBase
             ReintegrationByType = reintegrationByType,
             IncidentsByType = incidentGroups
         };
+    }
+
+    [HttpGet("safehouse-performance")]
+    [Authorize(Policy = AuthPolicies.ManageData)]
+    public async Task<ActionResult<List<SafehousePerformanceMlDto>>> SafehousePerformance(CancellationToken ct)
+    {
+        var rows = await _safehouseMl.ScoreAllSafehousesAsync(ct);
+        return rows.Select(r => new SafehousePerformanceMlDto
+        {
+            ModelAvailable = r.ModelAvailable,
+            ModelVersion = r.ModelVersion,
+            ScoredAtUtc = r.ScoredAtUtc,
+            SafehouseId = r.SafehouseId,
+            SafehouseName = r.SafehouseName,
+            OutcomeIndexActual = r.OutcomeIndexActual,
+            OutcomeIndexExpected = r.OutcomeIndexExpected,
+            BenchmarkGap = r.BenchmarkGap,
+            TierLabel = r.TierLabel,
+            TopDrivers = r.TopDrivers,
+            RecommendedActions = r.RecommendedActions
+        }).ToList();
     }
 
     [HttpGet("dashboard")]

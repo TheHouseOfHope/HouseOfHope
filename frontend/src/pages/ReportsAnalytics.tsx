@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { BarChart3, TrendingDown, Users, Sparkles, RefreshCw, ShieldAlert } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { fetchChurnRisks } from '@/lib/api-endpoints';
+import { fetchChurnRisks, fetchSafehousePerformance, type SafehousePerformanceMlRow } from '@/lib/api-endpoints';
 
 interface ChurnResult {
   modelAvailable: boolean;
@@ -48,6 +48,12 @@ export default function ReportsAnalytics() {
     staleTime: 1000 * 60 * 5,
   });
 
+  const safehouseQ = useQuery({
+    queryKey: ['safehousePerformance'],
+    queryFn: fetchSafehousePerformance,
+    staleTime: 1000 * 60 * 5,
+  });
+
   const results = Object.values(churnQ.data ?? {}) as ChurnResult[];
   const modelAvailable = results.length > 0 && results[0]?.modelAvailable;
 
@@ -57,6 +63,12 @@ export default function ReportsAnalytics() {
 
   const scoredAt = results[0]?.scoredAtUtc
     ? new Date(results[0].scoredAtUtc).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    : null;
+
+  const safehouseRows = (safehouseQ.data ?? []) as SafehousePerformanceMlRow[];
+  const safehouseModelAvailable = safehouseRows.length > 0 && safehouseRows[0]?.modelAvailable;
+  const safehouseScoredAt = safehouseRows[0]?.scoredAtUtc
+    ? new Date(safehouseRows[0].scoredAtUtc).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
     : null;
 
   return (
@@ -235,6 +247,74 @@ export default function ReportsAnalytics() {
           </CardContent>
         </Card>
       )}
+
+      {/* Safehouse performance benchmark */}
+      <Card className="border-2 border-primary/30 bg-primary/5">
+        <CardHeader>
+          <CardTitle className="font-display text-lg flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-primary" aria-hidden="true" />
+            Safehouse Performance Benchmark
+          </CardTitle>
+          <p className="text-sm text-foreground/70">
+            Ridge benchmark model trained on SeedData CSV patterns (read-only in production). It estimates expected outcomes given operational intensity and caseload complexity.
+          </p>
+        </CardHeader>
+        <CardContent>
+          {safehouseQ.isLoading ? (
+            <div className="grid grid-cols-3 gap-4">
+              {[1, 2, 3].map((i) => <Skeleton key={i} className="h-20 rounded-lg" />)}
+            </div>
+          ) : !safehouseModelAvailable ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground p-4 bg-muted/50 rounded-lg border border-dashed">
+              <ShieldAlert className="h-4 w-4 text-muted-foreground shrink-0" />
+              Model unavailable — ensure <code className="text-xs bg-background px-1 rounded mx-1">safehouse_performance_model.onnx</code> is deployed to the backend Models folder.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-muted-foreground">
+                  Sorted by biggest negative gap (actual − expected) first.
+                </p>
+                {safehouseScoredAt && (
+                  <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                    <RefreshCw className="h-3 w-3" />
+                    <span>Safehouse model {safehouseScoredAt}</span>
+                  </p>
+                )}
+              </div>
+              <div className="grid grid-cols-1 gap-2">
+                {safehouseRows.slice(0, 8).map((r) => (
+                  <div key={r.safehouseId} className="p-3 bg-card border rounded-lg">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold truncate">{r.safehouseName}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {r.tierLabel} · Gap: <span className="font-medium tabular-nums">{r.benchmarkGap.toFixed(2)}</span>
+                          {' '}· Actual: <span className="tabular-nums">{r.outcomeIndexActual.toFixed(2)}</span>
+                          {' '}· Expected: <span className="tabular-nums">{r.outcomeIndexExpected.toFixed(2)}</span>
+                        </p>
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        <RiskBadge tier={r.benchmarkGap <= -3 ? 'high' : r.benchmarkGap >= 3 ? 'low' : 'medium'} />
+                      </div>
+                    </div>
+                    {r.topDrivers?.length > 0 && (
+                      <p className="text-xs text-muted-foreground mt-2">{r.topDrivers.join(' · ')}</p>
+                    )}
+                    {r.recommendedActions?.length > 0 && (
+                      <ul className="mt-2 text-xs text-muted-foreground list-disc pl-5 space-y-1">
+                        {r.recommendedActions.slice(0, 3).map((a) => (
+                          <li key={a}>{a}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

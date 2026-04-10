@@ -18,6 +18,7 @@ builder.Services.AddSingleton(sp => CaseManagementThresholds.LoadOrDefaults(
     sp.GetRequiredService<ILogger<CaseManagementThresholds>>()));
 builder.Services.AddScoped<CaseManagementPredictionService>();
 builder.Services.AddScoped<DonorChurnPredictionService>();
+builder.Services.AddScoped<SafehousePerformancePredictionService>();
 if (builder.Environment.IsDevelopment())
 {
     builder.Services.AddDbContext<LighthouseDbContext>(options =>

@@ -46,6 +46,21 @@ public class CaseManagementPredictionDto
     public bool NlpDistressFlag { get; set; }
 }
 
+public class SafehousePerformanceMlDto
+{
+    public bool ModelAvailable { get; set; }
+    public string ModelVersion { get; set; } = "";
+    public string ScoredAtUtc { get; set; } = "";
+    public int SafehouseId { get; set; }
+    public string SafehouseName { get; set; } = "";
+    public double OutcomeIndexActual { get; set; }
+    public double OutcomeIndexExpected { get; set; }
+    public double BenchmarkGap { get; set; }
+    public string TierLabel { get; set; } = "";
+    public List<string> TopDrivers { get; set; } = [];
+    public List<string> RecommendedActions { get; set; } = [];
+}
+
 public class CounselingSessionDto
 {
     public string Id { get; set; } = "";
