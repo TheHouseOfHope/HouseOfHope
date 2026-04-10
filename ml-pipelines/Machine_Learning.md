@@ -1,6 +1,6 @@
 ## Training data (CSV only — not SQLite / not Azure SQL)
 
-- **Training and offline notebooks** should load Lighthouse data from **`backend/SeedData/*.csv`** (the same committed CSVs the API uses to seed local SQLite in development). Use `ml-pipelines/ml_data.py` → `resolve_seed_data_dir()` in Python scripts, or set **`ML_SEED_DATA_DIR`** to override the folder.
+- **Training and offline notebooks** should load Lighthouse data from **`backend/SeedData/*.csv`** (the same committed CSVs the API uses to seed local SQLite in development). Use `ml-pipelines/helpers/ml_data.py` → `resolve_seed_data_dir()` in Python scripts, or set **`ML_SEED_DATA_DIR`** to override the folder.
 - **Do not** point training pipelines at `*.sqlite` files or at production Azure SQL. Azure hosts no SQLite files; coupling training to a local DB drifts from what ships and from what runs in the cloud.
 - **Runtime inference** (the .NET API) correctly reads the **configured database** (SQLite in dev, SQL Server on Azure) so staff see scores against live data. That is separate from how you **train** exported ONNX/JSON artifacts.
 

@@ -23,7 +23,7 @@ from sklearn.tree import DecisionTreeClassifier, export_text
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from pipeline_utils import resolve_data_root  # noqa: E402
+from helpers.pipeline_utils import resolve_data_root  # noqa: E402
 
 SEED = 42
 

@@ -1,6 +1,6 @@
 {
   "version": "1",
-  "generatedAtUtc": "2026-04-10T05:29:19Z",
+  "generatedAtUtc": "2026-04-10T06:42:44Z",
   "problemSummary": "Explanatory decision tree (max_depth=3, gini) on home visit outcomes to surface drivers of favorable vs non-favorable visits for social-worker SOP planning \u2014 interpretability over raw predictive accuracy.",
   "modelParams": {
     "maxDepth": 3,
@@ -144,5 +144,5 @@
       "importance": 0.003787445311391851
     }
   ],
-  "notes": "Explanatory model for rubric discussion only. Refresh by re-running this notebook's export cell or scripts/export_home_visit_sop.py."
+  "notes": "Explanatory model for rubric discussion only. Keep in sync with Home_Visitation_Explanatory_Decision_Tree.ipynb when changing logic."
 }
