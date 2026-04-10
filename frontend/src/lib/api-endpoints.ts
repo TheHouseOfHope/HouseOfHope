@@ -14,8 +14,10 @@ export interface MonthlyTrendPoint {
   month: string;
   residents: number;
   donations: number;
-  education: number;
-  health: number;
+  /** Present only for months with education records */
+  education: number | null;
+  /** Present only for months with health records */
+  health: number | null;
 }
 
 export interface ImpactStats {

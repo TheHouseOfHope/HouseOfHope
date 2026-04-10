@@ -298,15 +298,29 @@ export default function AdminDashboard() {
                 <ResponsiveContainer width="100%" height={250}>
                   <LineChart data={chartData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(180 15% 90%)" />
-                    <XAxis dataKey="month" fontSize={12} />
+                    <XAxis
+                      dataKey="month"
+                      fontSize={11}
+                      interval={0}
+                      angle={-30}
+                      textAnchor="end"
+                      height={56}
+                    />
                     <YAxis fontSize={12} domain={[0, 100]} />
-                    <Tooltip />
+                    <Tooltip
+                      formatter={(value: number | string, name: string) => {
+                        const n = typeof value === 'number' ? value : Number(value);
+                        const pct = Number.isNaN(n) ? '—' : `${Math.round(n)}%`;
+                        return [pct, name];
+                      }}
+                    />
                     <Line
                       type="monotone"
                       dataKey="education"
                       stroke="hsl(200 65% 55%)"
                       strokeWidth={2}
                       name="Education %"
+                      connectNulls={false}
                     />
                     <Line
                       type="monotone"
@@ -314,6 +328,7 @@ export default function AdminDashboard() {
                       stroke="hsl(174 55% 38%)"
                       strokeWidth={2}
                       name="Health %"
+                      connectNulls={false}
                     />
                   </LineChart>
                 </ResponsiveContainer>
