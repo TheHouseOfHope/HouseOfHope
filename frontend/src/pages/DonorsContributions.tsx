@@ -199,7 +199,9 @@ export default function DonorsContributions() {
     [donations],
   );
 
-  const filteredDonors = supporters.filter((s) => {
+  const visibleDonors = supporters.filter((s) => s.displayName.trim().toLowerCase() !== 'deleted donor');
+
+  const filteredDonors = visibleDonors.filter((s) => {
     const matchesSearch = s.displayName.toLowerCase().includes(search.toLowerCase());
     const matchesStatus = statusFilter === 'all' || s.status === statusFilter;
     const matchesCountry = countryFilter === 'all' || canonicalCountryKey(s.country || '') === countryFilter;

@@ -51,7 +51,7 @@ export default function LandingPage() {
                 </Button>
                 {!isAuthenticated && (  // WRAP THE LOGIN BUTTON
                     <Button size="lg" variant="outline" className="border-white text-white hover:bg-white/10 bg-transparent" asChild>
-                      <Link to="/login">Login</Link>
+                      <Link to="/login">Donate Now</Link>
                     </Button>
                 )}
               </div>
