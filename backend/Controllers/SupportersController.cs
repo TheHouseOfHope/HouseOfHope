@@ -169,6 +169,26 @@ public class SupportersController : ControllerBase
             return BadRequest(new { message = "The Deleted Donor fallback record cannot be removed." });
         }
 
+        // If this supporter is linked to an Identity user in the Donor role,
+        // remove that role assignment so GetAll() does not auto-recreate the supporter.
+        if (!string.IsNullOrWhiteSpace(entity.Email))
+        {
+            var linkedUser = await _userManager.FindByEmailAsync(entity.Email);
+            if (linkedUser != null && await _userManager.IsInRoleAsync(linkedUser, AuthRoles.Donor))
+            {
+                var roleResult = await _userManager.RemoveFromRoleAsync(linkedUser, AuthRoles.Donor);
+                if (!roleResult.Succeeded)
+                {
+                    var errors = roleResult.Errors.Select(e => e.Description);
+                    return StatusCode(500, new
+                    {
+                        message = "Could not complete deletion because donor role removal failed.",
+                        errors
+                    });
+                }
+            }
+        }
+
         await using var tx = await _db.Database.BeginTransactionAsync(ct);
         var donationsToReassign = await _db.Donations
             .Where(d => d.SupporterId == id)
