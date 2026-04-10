@@ -31,8 +31,6 @@ export interface Resident {
   caseCategory: string;
   caseSubcategories: string[];
   riskLevel: RiskLevel;
-  /** Intake risk; empty if not recorded */
-  initialRiskLevel: RiskLevel | '';
   assignedSocialWorker: string;
   reintegrationStatus: string;
   reintegrationType: string;

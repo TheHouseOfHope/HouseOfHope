@@ -149,7 +149,6 @@ public static class HouseOfHopeMapper
             CaseCategory = r.CaseCategory ?? "",
             CaseSubcategories = BuildSubcategories(r),
             RiskLevel = ToRisk(r.CurrentRiskLevel),
-            InitialRiskLevel = string.IsNullOrWhiteSpace(r.InitialRiskLevel) ? "" : ToRisk(r.InitialRiskLevel),
             AssignedSocialWorker = r.AssignedSocialWorker ?? "",
             ReintegrationStatus = r.ReintegrationStatus ?? "",
             ReintegrationType = r.ReintegrationType ?? "",

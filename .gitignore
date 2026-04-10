@@ -6,6 +6,14 @@
 **/_bc[0-9]*/
 backend/bin_temp/
 backend/_buildcheck/
+# Alternate `dotnet build -o` output (e.g. _revert_build)
+backend/_revert_build/
+**/_revert_build/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
 [Ll]og/
 [Ll]ogs/
 [Dd]ebug/

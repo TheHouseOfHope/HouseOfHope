@@ -364,10 +364,6 @@ namespace HouseOfHope.API.Migrations
                         .HasColumnType("nvarchar(max)")
                         .HasColumnName("current_risk_level");
 
-                    b.Property<string>("InitialRiskLevel")
-                        .HasColumnType("nvarchar(max)")
-                        .HasColumnName("initial_risk_level");
-
                     b.Property<string>("DateOfAdmission")
                         .HasColumnType("nvarchar(max)")
                         .HasColumnName("date_of_admission");
@@ -497,62 +493,6 @@ namespace HouseOfHope.API.Migrations
                     b.ToTable("safehouses", (string)null);
                 });
 
-            modelBuilder.Entity("HouseOfHope.API.Data.SafehouseMonthlyMetric", b =>
-                {
-                    b.Property<int>("MetricId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasColumnName("metric_id");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("MetricId"));
-
-                    b.Property<int?>("ActiveResidents")
-                        .HasColumnType("int")
-                        .HasColumnName("active_residents");
-
-                    b.Property<double?>("AvgEducationProgress")
-                        .HasColumnType("float")
-                        .HasColumnName("avg_education_progress");
-
-                    b.Property<double?>("AvgHealthScore")
-                        .HasColumnType("float")
-                        .HasColumnName("avg_health_score");
-
-                    b.Property<int?>("HomeVisitationCount")
-                        .HasColumnType("int")
-                        .HasColumnName("home_visitation_count");
-
-                    b.Property<int?>("IncidentCount")
-                        .HasColumnType("int")
-                        .HasColumnName("incident_count");
-
-                    b.Property<string>("MonthEnd")
-                        .HasColumnType("nvarchar(max)")
-                        .HasColumnName("month_end");
-
-                    b.Property<string>("MonthStart")
-                        .HasColumnType("nvarchar(max)")
-                        .HasColumnName("month_start");
-
-                    b.Property<string>("Notes")
-                        .HasColumnType("nvarchar(max)")
-                        .HasColumnName("notes");
-
-                    b.Property<int?>("ProcessRecordingCount")
-                        .HasColumnType("int")
-                        .HasColumnName("process_recording_count");
-
-                    b.Property<int>("SafehouseId")
-                        .HasColumnType("int")
-                        .HasColumnName("safehouse_id");
-
-                    b.HasKey("MetricId");
-
-                    b.HasIndex("SafehouseId");
-
-                    b.ToTable("safehouse_monthly_metrics", (string)null);
-                });
-
             modelBuilder.Entity("HouseOfHope.API.Data.SocialMediaPost", b =>
                 {
                     b.Property<int>("PostId")
@@ -671,17 +611,6 @@ namespace HouseOfHope.API.Migrations
                         .IsRequired();
 
                     b.Navigation("Supporter");
-                });
-
-            modelBuilder.Entity("HouseOfHope.API.Data.SafehouseMonthlyMetric", b =>
-                {
-                    b.HasOne("HouseOfHope.API.Data.Safehouse", "Safehouse")
-                        .WithMany()
-                        .HasForeignKey("SafehouseId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Safehouse");
                 });
 
             modelBuilder.Entity("HouseOfHope.API.Data.Resident", b =>

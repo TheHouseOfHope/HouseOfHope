@@ -1,3 +1,13 @@
+## Training data (CSV only — not SQLite / not Azure SQL)
+
+- **Training and offline notebooks** should load Lighthouse data from **`backend/SeedData/*.csv`** (the same committed CSVs the API uses to seed local SQLite in development). Use `ml-pipelines/ml_data.py` → `resolve_seed_data_dir()` in Python scripts, or set **`ML_SEED_DATA_DIR`** to override the folder.
+- **Do not** point training pipelines at `*.sqlite` files or at production Azure SQL. Azure hosts no SQLite files; coupling training to a local DB drifts from what ships and from what runs in the cloud.
+- **Runtime inference** (the .NET API) correctly reads the **configured database** (SQLite in dev, SQL Server on Azure) so staff see scores against live data. That is separate from how you **train** exported ONNX/JSON artifacts.
+
+When the **deployed API** is rolled back to an older build but **main** still contains newer schema or endpoints, production and the repo can be out of sync until you redeploy a matching build or migrate the database. Training from `SeedData` keeps a single file-based source of truth for regenerating models regardless of where the API runs.
+
+---
+
 `Donor_Analysis.ipynb` addresses the business problem of improving donor growth and allocation strategy by combining exploratory segmentation, campaign/channel performance analysis, and fundraising KPI storytelling to identify where acquisition and stewardship should be focused; this notebook is mainly descriptive and predictive-supportive (not causal proof), so it should drive website decisions such as smarter donation journey personalization, campaign content emphasis, and impact storytelling blocks that align asks with what historically performs best.
 
 `Donor_Churn_Analysis.ipynb` solves the operational problem of identifying supporters at near-term risk of lapsing (no donation in a forward window) so teams can prioritize retention outreach under capacity constraints; this is a production predictive pipeline (time-respecting features/labels, leakage controls, cross-validation, thresholds, and risk tiers), not a causal model, and it should integrate into the website ecosystem through internal CRM/staff dashboards and workflow APIs for ranked outreach lists while keeping individual risk scores private from public pages.

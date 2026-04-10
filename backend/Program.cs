@@ -14,8 +14,6 @@ builder.Services.AddOpenApi();
 builder.Services.AddSingleton<SocialMediaPredictionService>();
 builder.Services.AddScoped<CaseManagementPredictionService>();
 builder.Services.AddScoped<DonorChurnPredictionService>();
-builder.Services.AddScoped<SafehousePerformanceService>();
-
 if (builder.Environment.IsDevelopment())
 {
     builder.Services.AddDbContext<LighthouseDbContext>(options =>

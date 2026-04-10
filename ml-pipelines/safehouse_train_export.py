@@ -2,6 +2,8 @@
 Train safehouse performance benchmark model and export ONNX + JSON metadata.
 Run from ml-pipelines/:  python safehouse_train_export.py
 
+Training data: CSVs under backend/SeedData (see ml_data.resolve_seed_data_dir), not SQLite.
+
 v2: adds safehouse_monthly_metrics features + full outcome index with risk improvement.
 """
 from __future__ import annotations
@@ -26,7 +28,9 @@ except ImportError as e:
         "Install skl2onnx: pip install skl2onnx onnx onnxruntime"
     ) from e
 
-DATA_DIR = Path("lighthouse_csv_v7")
+from ml_data import resolve_seed_data_dir
+
+DATA_DIR = resolve_seed_data_dir()
 OUT_ONNX = Path("safehouse_performance_model.onnx")
 OUT_JSON = Path("safehouse_performance_preprocessing.json")
 

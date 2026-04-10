@@ -70,8 +70,6 @@ public class ResidentsController : ControllerBase
             CaseStatus = request.CaseStatus,
             CaseCategory = request.CaseCategory,
             CurrentRiskLevel = HouseOfHopeMapper.NormalizeRiskLevel(request.RiskLevel),
-            InitialRiskLevel = HouseOfHopeMapper.NormalizeRiskLevel(request.InitialRiskLevel)
-                ?? HouseOfHopeMapper.NormalizeRiskLevel(request.RiskLevel),
             AssignedSocialWorker = request.AssignedSocialWorker,
             ReintegrationStatus = request.ReintegrationStatus,
             ReintegrationType = request.ReintegrationType,
@@ -129,8 +127,6 @@ public class ResidentsController : ControllerBase
         entity.CaseStatus = request.CaseStatus;
         entity.CaseCategory = request.CaseCategory;
         entity.CurrentRiskLevel = HouseOfHopeMapper.NormalizeRiskLevel(request.RiskLevel);
-        if (request.InitialRiskLevel != null)
-            entity.InitialRiskLevel = HouseOfHopeMapper.NormalizeRiskLevel(request.InitialRiskLevel);
         entity.AssignedSocialWorker = request.AssignedSocialWorker;
         entity.ReintegrationStatus = request.ReintegrationStatus;
         entity.ReintegrationType = request.ReintegrationType;
@@ -676,8 +672,6 @@ public class UpsertResidentRequest
     public string? CaseStatus { get; set; }
     public string? CaseCategory { get; set; }
     public string? RiskLevel { get; set; }
-    /// <summary>Intake risk; defaults to current risk on create if omitted.</summary>
-    public string? InitialRiskLevel { get; set; }
     public string? AssignedSocialWorker { get; set; }
     public string? ReintegrationStatus { get; set; }
     public string? ReintegrationType { get; set; }

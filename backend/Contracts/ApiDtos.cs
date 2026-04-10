@@ -10,8 +10,6 @@ public class ResidentDto
     public string CaseCategory { get; set; } = "";
     public List<string> CaseSubcategories { get; set; } = [];
     public string RiskLevel { get; set; } = "";
-    /// <summary>Risk at intake (Low / Medium / High / Critical).</summary>
-    public string InitialRiskLevel { get; set; } = "";
     public string AssignedSocialWorker { get; set; } = "";
     public string ReintegrationStatus { get; set; } = "";
     public string ReintegrationType { get; set; } = "";
