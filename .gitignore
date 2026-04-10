@@ -5,10 +5,15 @@
 # Alternate output dirs from `dotnet build -o path` (e.g. _bc3, _bc4 — not the same as bin/)
 **/_bc[0-9]*/
 backend/bin_temp/
+**/bin_temp/
 backend/_buildcheck/
-# Alternate `dotnet build -o` output (e.g. _revert_build)
+backend/_buildcheck*/
+**/_buildcheck*/
+# Alternate `dotnet build -o` output (e.g. _revert_build, _mergecheck)
 backend/_revert_build/
 **/_revert_build/
+backend/_mergecheck/
+**/_mergecheck/
 
 # Python
 __pycache__/
