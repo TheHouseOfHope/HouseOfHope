@@ -8,7 +8,7 @@ When the **deployed API** is rolled back to an older build but **main** still co
 
 ---
 
-## ML pipelines catalog (`ml-pipelines/*.ipynb`)
+## ML pipelines catalog (`ml-pipelines/*.ipynb` and `ml-pipelines/adidtional_notebooks/*.ipynb`)
 
 Below, **predictive** means supervised models used for forecasting, ranking, or scores; **causal** means explicit causal identification (RCTs, IV, diff-in-diff, etc.). Unless stated otherwise, notebooks report **associational** patterns in observational data — useful for planning, not proof that changing one input *causes* an outcome.
 
